@@ -24,28 +24,30 @@ char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 
 // TCP socket funcs
 int listen_socket(int &sock, unsigned short port);
-void handle_accepted(int &csock, char *buffer, int &size);
+void read_socket(int &csock, char *buffer, unsigned int &size);
 int connect_socket(char *ip_addr, unsigned short port, int &sock);
 void RedirectIOToConsole(int debug);
 int set_sock_options(int sock);
 void handle_listen(int &sock, int &csock, char *ipstr);
 
+
+static int server = 0xFFFFFFFF;
+
 // globals (Large buffers cant be on stack)
 queue_t squeue;
 queue_t rqueue;
 
-unsigned char rbuffer[FRAME_SIZE * 10];
-unsigned char sbuffer[FRAME_SIZE * 10];
+unsigned char rbuffer[FRAME_SIZE * 5];
+unsigned char sbuffer[FRAME_SIZE * 5];
 unsigned char recv_image[FRAME_SIZE];
 unsigned char cap_image_last[FRAME_SIZE];
-unsigned char data[FRAME_SIZE];
-BOOL server = true;
+unsigned char data[1920 * 1080 * 2];
 
 
 int GetScreenCapture(HWND hwnd, unsigned char *data)
 {
-	HDC hdcScreen;
-	HDC hdc;
+	HDC hdcScreen = NULL;
+	HDC hdc = NULL;
 	HDC hTargetDC = NULL;
 	HBITMAP hBitmap = NULL;
 
@@ -69,7 +71,6 @@ int GetScreenCapture(HWND hwnd, unsigned char *data)
 
 	GetBitmapBits(hBitmap, FRAME_SIZE, data);
 
-
 	DeleteObject(hBitmap);
 	DeleteObject(hTargetDC);
 	ReleaseDC(NULL, hdcScreen);
@@ -77,6 +78,148 @@ int GetScreenCapture(HWND hwnd, unsigned char *data)
 
 	return 0;
 }
+
+int CaptureAnImage(HWND hWnd)
+{
+	HDC hdcScreen;
+	HDC hdcWindow;
+	HDC hdcMemDC = NULL;
+	HBITMAP hbmScreen = NULL;
+	BITMAP bmpScreen;
+	DWORD dwBytesWritten = 0;
+	DWORD dwSizeofDIB = 0;
+	HANDLE hFile = NULL;
+	char* lpbitmap = NULL;
+	HANDLE hDIB = NULL;
+	DWORD dwBmpSize = 0;
+
+	// Retrieve the handle to a display device context for the client 
+	// area of the window. 
+	hdcScreen = GetDC(NULL);
+	hdcWindow = GetDC(hWnd);
+
+	// Create a compatible DC, which is used in a BitBlt from the window DC.
+	hdcMemDC = CreateCompatibleDC(hdcWindow);
+
+	if (!hdcMemDC)
+	{
+		MessageBox(hWnd, "CreateCompatibleDC has failed", "Failed", MB_OK);
+		goto done;
+	}
+
+	// Get the client area for size calculation.
+	RECT rcClient;
+	GetClientRect(hWnd, &rcClient);
+
+	// This is the best stretch mode.
+	SetStretchBltMode(hdcWindow, HALFTONE);
+
+	// The source DC is the entire screen, and the destination DC is the current window (HWND).
+	if (!StretchBlt(hdcWindow,
+		0, 0,
+		rcClient.right, rcClient.bottom,
+		hdcScreen,
+		0, 0,
+		GetSystemMetrics(SM_CXSCREEN),
+		GetSystemMetrics(SM_CYSCREEN),
+		SRCCOPY))
+	{
+		MessageBox(hWnd, "StretchBlt has failed", "Failed", MB_OK);
+		goto done;
+	}
+
+	// Create a compatible bitmap from the Window DC.
+	hbmScreen = CreateCompatibleBitmap(hdcWindow, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top);
+
+	if (!hbmScreen)
+	{
+		MessageBox(hWnd, "CreateCompatibleBitmap Failed", "Failed", MB_OK);
+		goto done;
+	}
+
+	// Select the compatible bitmap into the compatible memory DC.
+	SelectObject(hdcMemDC, hbmScreen);
+
+	// Bit block transfer into our compatible memory DC.
+	if (!BitBlt(hdcMemDC,
+		0, 0,
+		rcClient.right - rcClient.left, rcClient.bottom - rcClient.top,
+		hdcWindow,
+		0, 0,
+		SRCCOPY))
+	{
+		MessageBox(hWnd, "BitBlt has failed", "Failed", MB_OK);
+		goto done;
+	}
+
+	// Get the BITMAP from the HBITMAP.
+	GetObject(hbmScreen, sizeof(BITMAP), &bmpScreen);
+
+	BITMAPFILEHEADER   bmfHeader;
+	BITMAPINFOHEADER   bi;
+
+	bi.biSize = sizeof(BITMAPINFOHEADER);
+	bi.biWidth = bmpScreen.bmWidth;
+	bi.biHeight = bmpScreen.bmHeight;
+	bi.biPlanes = 1;
+	bi.biBitCount = 32;
+	bi.biCompression = BI_RGB;
+	bi.biSizeImage = 0;
+	bi.biXPelsPerMeter = 0;
+	bi.biYPelsPerMeter = 0;
+	bi.biClrUsed = 0;
+	bi.biClrImportant = 0;
+
+	dwBmpSize = ((bmpScreen.bmWidth * bi.biBitCount + 31) / 32) * 4 * bmpScreen.bmHeight;
+
+	// Starting with 32-bit Windows, GlobalAlloc and LocalAlloc are implemented as wrapper functions that 
+	// call HeapAlloc using a handle to the process's default heap. Therefore, GlobalAlloc and LocalAlloc 
+	// have greater overhead than HeapAlloc.
+	hDIB = GlobalAlloc(GHND, dwBmpSize);
+	lpbitmap = (char*)GlobalLock(hDIB);
+
+
+	// Gets the "bits" from the bitmap, and copies them into a buffer 
+	// that's pointed to by lpbitmap.
+	GetDIBits(hdcWindow, hbmScreen, 0,
+		(UINT)bmpScreen.bmHeight,
+		lpbitmap,
+		(BITMAPINFO*)&bi, DIB_RGB_COLORS);
+
+
+
+
+
+
+	// Add the size of the headers to the size of the bitmap to get the total file size.
+	dwSizeofDIB = dwBmpSize + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+
+	// Offset to where the actual bitmap bits start.
+	bmfHeader.bfOffBits = (DWORD)sizeof(BITMAPFILEHEADER) + (DWORD)sizeof(BITMAPINFOHEADER);
+
+	// Size of the file.
+	bmfHeader.bfSize = dwSizeofDIB;
+
+	// bfType must always be BM for Bitmaps.
+	bmfHeader.bfType = 0x4D42; // BM.
+
+	memcpy(data, lpbitmap, dwBmpSize);
+
+
+	// Unlock and Free the DIB from the heap.
+	GlobalUnlock(hDIB);
+	GlobalFree(hDIB);
+
+	// Clean up.
+done:
+	DeleteObject(hbmScreen);
+	DeleteObject(hdcMemDC);
+	ReleaseDC(NULL, hdcScreen);
+	ReleaseDC(hWnd, hdcWindow);
+
+	return 0;
+}
+
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
@@ -114,7 +257,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	if (server)
 	{
-		ShowWindow(hwnd, 0);
+		// Note, hiding the window screws with the screen capture
+		// might grab random hwnd through hwnd search or something
+		ShowWindow(hwnd, SW_SHOW);
 	}
 	else
 	{
@@ -153,7 +298,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	static unsigned int screen_width;
 	static unsigned int screen_height;
 	static unsigned int screen_size;
-	static bool init = false;
 
 	static int server_sock = -1;	// listen socket
 	static int client_sock = -1;	// client socket from listen
@@ -173,36 +317,37 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	{
 		WSAStartup(MAKEWORD(2, 0), &WSAData);
-		RedirectIOToConsole(false);
+		RedirectIOToConsole(true);
 		SetTimer(hwnd, 0, 500, NULL);
 
-		screen_width = GetSystemMetrics(SM_CXSCREEN);
-		screen_height = GetSystemMetrics(SM_CYSCREEN);
-		screen_size = screen_width * screen_height * 4;
 
 		char path[MAX_PATH] = { 0 };
 		GetCurrentDirectory(MAX_PATH, path);
 		lstrcat(path, TEXT("\\roomy.ini"));
 
 		listen_port = GetPrivateProfileInt(TEXT("roomy"), TEXT("listen"), 65535, path);
-		connect_port = GetPrivateProfileInt(TEXT("roomy"), TEXT("connect"), 65534, path);
+		connect_port = GetPrivateProfileInt(TEXT("roomy"), TEXT("connect"), 65535, path);
 		GetPrivateProfileString(TEXT("roomy"), TEXT("ip"), "127.0.0.1", connect_ip, MAX_PATH, path);
-		listen_mode = GetPrivateProfileInt(TEXT("roomy"), TEXT("listen_mode"), 0, path);
+		listen_mode = GetPrivateProfileInt(TEXT("roomy"), TEXT("listen_mode"), 1, path);
 
 		printf("listen_mode is %d\r\n", listen_mode);
-		if (listen_mode == 0)
+		if (listen_mode == 1)
 		{
 			listen_socket(server_sock, listen_port);
 			set_sock_options(server_sock);
 		}
+
 		break;
 	}
 	case WMU_CAPTURE:
 	{
-		int rsize = 0;
+		unsigned int rsize = 0;
 
-		if (init == false)
-			return 0;
+		screen_width = GetSystemMetrics(SM_CXSCREEN);
+		screen_height = GetSystemMetrics(SM_CYSCREEN);
+		screen_size = screen_width * screen_height * 4;
+
+
 
 		if (server)
 		{
@@ -211,16 +356,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				if (client_sock == SOCKET_ERROR)
 				{
 					handle_listen(server_sock, client_sock, client_ip);
-
-					static bool once = false;
-					if (once == false)
-					{
-						once = true;
-					}
-				}
-				else
-				{
-					handle_accepted(client_sock, (char *)rbuffer, rsize);
 				}
 
 				while (rqueue.size >= screen_size)
@@ -247,14 +382,13 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 						enqueue_front(&rqueue, &rbuffer[ret], screen_size - ret);
 					}
 				}
-			}
-			else
-			{
+
 				while (squeue.size >= screen_size && connect_sock != SOCKET_ERROR)
 				{
-					int size = dequeue(&squeue, sbuffer, screen_size);
+					dequeue(&squeue, sbuffer, screen_size);
 
-					int ret = send(connect_sock, (char *)sbuffer, size, 0);
+					printf("Atempting to send %d bytes\r\n", screen_size);
+					int ret = send(connect_sock, (char *)sbuffer, screen_size, 0);
 					if (ret == -1)
 					{
 						int err = WSAGetLastError();
@@ -274,6 +408,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 						enqueue_front(&squeue, &sbuffer[ret], screen_size - ret);
 					}
 				}
+
 			}
 		}
 		else
@@ -282,36 +417,33 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (client_sock == SOCKET_ERROR)
 			{
 				handle_listen(server_sock, client_sock, client_ip);
-
-				static bool once = false;
-				if (once == false)
-				{
-					once = true;
-				}
 			}
 			else
 			{
-				handle_accepted(client_sock, (char *)rbuffer, rsize);
+				read_socket(client_sock, (char *)rbuffer, rsize);
 				enqueue(&rqueue, rbuffer, rsize);
 			}
 
 
-			while (rqueue.size >= screen_size)
+			if (rqueue.size >= screen_size)
 			{
+				printf("Adding to view buffer\r\n");
 				dequeue(&rqueue, data, screen_size);
+				InvalidateRect(hwnd, NULL, 0);
 				// client draws from data buffer, so thats it
 			}
 
 			if (connect_sock != SOCKET_ERROR)
 			{
-				// really just reads the socket, bad name
-				handle_accepted(connect_sock, (char *)sbuffer, rsize);
+				read_socket(connect_sock, (char *)sbuffer, rsize);
 				enqueue(&squeue, sbuffer, rsize);
 			}
 
-			while (squeue.size >= screen_size && connect_sock != SOCKET_ERROR)
+			if (squeue.size >= screen_size && connect_sock != SOCKET_ERROR)
 			{
+				printf("Adding to view buffer\r\n");
 				dequeue(&squeue, data, screen_size);
+				InvalidateRect(hwnd, NULL, 0);
 			}
 		}
 		break;
@@ -319,26 +451,30 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_TIMER:
 	{
 		// Dont attempt anything until video is streaming
-		if (init == false)
-			return 0;
 
-		if (server == TRUE)
+		if (server)
 		{
-			GetScreenCapture(hwnd, data);
+//
+			static bool once = false;
+			if (once == false)
+			{
+//				GetScreenCapture(hwnd, data);
+				CaptureAnImage(hwnd);
+				once = true;
+			}
 
 			// prevent duplicate frames
-			if (memcmp(data, cap_image_last, screen_width * screen_height * 4) != 0)
+//			if (memcmp(data, cap_image_last, screen_size) != 0)
 			{
-				int size = screen_width * screen_height * 4;
-
 				// send to both connect and listen queues
-				enqueue(&squeue, data, size);
-				enqueue(&rqueue, data, size);
-				memcpy(cap_image_last, data, size);
+				printf("Adding frame to queue\r\n");
+				enqueue(&squeue, data, screen_size);
+				enqueue(&rqueue, data, screen_size);
+				memcpy(cap_image_last, data, screen_size);
 			}
-			else
+//			else
 			{
-				printf("Duplicate frame\r\n");
+//				printf("Duplicate frame\r\n");
 			}
 		}
 
@@ -377,8 +513,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		width = LOWORD(lParam);
 		height = HIWORD(lParam);
 
-		init = true;
-
 		break;
 	}
 
@@ -389,17 +523,18 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		hdc = BeginPaint(hwnd, &ps);
 
+		GetClientRect(hwnd, &client_area);
 		if (server == false)
 		{
 			draw_pixels(hdc, 0, 0,
 				client_area.right, client_area.bottom,
-				screen_width, screen_height,
+				1920, 1080,
 				data);
 
-
+#if 0
 			char state[MAX_PATH];
 
-			sprintf(state, "Connect socket %d, connected=%d. client socket %d, connected=%d connect_enable=%d",
+			sprintf(state, "Connect socket %d, connected=%d. client socket %d, connected=%d listen_mode=%d",
 				connect_sock,
 				connect_state == CONNECTED,
 				client_sock,
@@ -414,6 +549,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				client_ip
 			);
 			TextOut(hdc, 50, 550, state, strlen(state));
+#endif
 		}
 
 		EndPaint(hwnd, &ps);
@@ -613,30 +749,36 @@ void handle_listen(int &sock, int &csock, char *ipstr)
 }
 
 
-void handle_accepted(int &csock, char *buffer, int &size)
+void read_socket(int &csock, char *buffer, unsigned int &size)
 {
 	if (csock == -1)
 		return;
 
+	size = 0;
 	while (1)
 	{
-		size = recv(csock, buffer, FRAME_SIZE, 0);
-		if (size > 0)
+		int ret = 0;
+		ret = recv(csock, buffer, FRAME_SIZE, 0);
+		if (ret > 0)
 		{
-			// add data to circular queue
-			//enqueue(&rqueue, rbuffer, size);
+			printf("Read %d bytes from socket\r\n", ret);
+			size += ret;
+			if (size > 1920 * 1080 * 4)
+			{
+				printf("Read a frame already\r\n");
+				break;
+			}
 		}
-		else if (size == 0)
+		else if (ret == 0)
 		{
 			break;
 		}
-		else if (size < 0)
+		else if (ret < 0)
 		{
 			int ret = WSAGetLastError();
 
 			if (ret == WSAEWOULDBLOCK)
 			{
-				size = 0;
 				return;
 			}
 
@@ -671,7 +813,7 @@ void draw_pixels(HDC hdc, int xoff, int yoff, int width, int height, int scalew,
 	hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
 	// This scaling is a little strange because Stretch maintains aspect ratios
-	StretchBlt(hdc, xoff, yoff, scalew, scaleh, hdcMem, 0, 0, width, height, SRCCOPY);
+	StretchBlt(hdc, xoff, height, scalew, -scaleh, hdcMem, 0, 0, width, height, SRCCOPY);
 	SelectObject(hdcMem, hOldBitmap);
 	DeleteDC(hdcMem);
 	DeleteObject(hBitmap);

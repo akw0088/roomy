@@ -1,8 +1,8 @@
 #include "queue.h"
 
-int enqueue(queue_t *queue, unsigned char *buffer, int size)
+uint64_t enqueue(queue_t *queue, unsigned char *buffer, uint64_t size)
 {
-	int        i;
+	uint64_t        i;
 
 	if (queue->size == SIZE_QUEUE)
 	{
@@ -19,9 +19,9 @@ int enqueue(queue_t *queue, unsigned char *buffer, int size)
 	return i;
 }
 
-int enqueue_front(queue_t *queue, unsigned char *buffer, int size)
+uint64_t enqueue_front(queue_t *queue, unsigned char *buffer, uint64_t size)
 {
-	int        i;
+	uint64_t        i;
 
 	if (queue->size == SIZE_QUEUE)
 		return 0;
@@ -39,9 +39,9 @@ int enqueue_front(queue_t *queue, unsigned char *buffer, int size)
 }
 
 
-int dequeue(queue_t *queue, unsigned char *buffer, int size)
+uint64_t dequeue(queue_t *queue, unsigned char *buffer, uint64_t size)
 {
-	int        i;
+	uint64_t        i;
 
 	for (i = 0; i < size && queue->size != 0; i++)
 	{
@@ -56,11 +56,11 @@ int dequeue(queue_t *queue, unsigned char *buffer, int size)
 	return i;
 }
 
-int dequeue_peek(queue_t *queue, unsigned char *buffer, int size)
+uint64_t dequeue_peek(queue_t *queue, unsigned char *buffer, uint64_t size)
 {
-	int        i;
-	int		head = queue->head;
-	int		qsize = queue->size;
+	uint64_t        i;
+	uint64_t		head = queue->head;
+	uint64_t		qsize = queue->size;
 
 	for (i = 0; i < size && qsize != 0; i++)
 	{
