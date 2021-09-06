@@ -344,24 +344,27 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					}
 
 
-					int ret = send(client_sock, (char *)rbuffer, screen_size + sizeof(header_t), 0);
-					if (ret == -1)
+					if (client_sock != -1)
 					{
-						int err = WSAGetLastError();
-
-						if (err != WSAEWOULDBLOCK)
+						int ret = send(client_sock, (char *)rbuffer, screen_size + sizeof(header_t), 0);
+						if (ret == -1)
 						{
-							printf("send returned -1 error %d\r\n", err);
-							connect_state = DISCONNECTED;
-							closesocket(connect_sock);
-							connect_sock = -1;
+							int err = WSAGetLastError();
+
+							if (err != WSAEWOULDBLOCK)
+							{
+								printf("send returned -1 error %d\r\n", err);
+								connect_state = DISCONNECTED;
+								closesocket(client_sock);
+								client_sock = -1;
+							}
+							break;
 						}
-						break;
-					}
-					else if (ret > 0 && ret < screen_size)
-					{
-						// partial send occurred (full buffer?)
-						enqueue_front(&rqueue, &rbuffer[ret], screen_size - ret);
+						else if (ret > 0 && ret < screen_size)
+						{
+							// partial send occurred (full buffer?)
+							enqueue_front(&rqueue, &rbuffer[ret], screen_size - ret);
+						}
 					}
 				}
 
@@ -443,7 +446,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				// client draws from data buffer, so thats it
 			}
 
-			if (connect_sock != SOCKET_ERROR)
+			if (connect_sock != SOCKET_ERROR && connect_state == CONNECTED)
 			{
 				read_socket(connect_sock, (char *)sbuffer, rsize);
 				enqueue(&squeue, sbuffer, rsize);
