@@ -80,7 +80,25 @@ int GetScreenCapture(HWND hwnd, unsigned char *data)
 		rect.bottom - rect.top,
 		hdc, 0, 0, SRCCOPY);
 
-	GetBitmapBits(hBitmap, (rect.right - rect.left) * (rect.bottom - rect.top) * 4, data);
+
+	BITMAPINFOHEADER   bi;
+
+	bi.biSize = sizeof(BITMAPINFOHEADER);
+	bi.biWidth = (rect.right - rect.left);
+	bi.biHeight = (rect.bottom - rect.top);
+	bi.biPlanes = 1;
+	bi.biBitCount = 32;
+	bi.biCompression = BI_RGB;
+	bi.biSizeImage = 0;
+	bi.biXPelsPerMeter = 0;
+	bi.biYPelsPerMeter = 0;
+	bi.biClrUsed = 0;
+	bi.biClrImportant = 0;
+
+	// GetBitmapBits is device dependent, so might give some weirdness across networks
+	//GetBitmapBits(hBitmap, (rect.right - rect.left) * (rect.bottom - rect.top) * 4, data);
+
+	GetDIBits(hdc, hBitmap, 0, (rect.bottom - rect.top), data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
 
 	DeleteObject(hBitmap);
 	DeleteObject(hTargetDC);
@@ -90,96 +108,6 @@ int GetScreenCapture(HWND hwnd, unsigned char *data)
 	return 0;
 }
 
-
-
-int CaptureAnImage(HWND hwnd)
-{
-	HDC hdcScreen;
-	HDC hdcWindow;
-	HDC hdcMemDC = NULL;
-	HBITMAP hbmScreen = NULL;
-	HANDLE hDIB = NULL;
-
-
-	// Retrieve the handle to a display device context for the client 
-	// area of the window. 
-	hdcScreen = GetDC(NULL);
-	hdcWindow = GetDC(hwnd);
-
-	// Create a compatible DC, which is used in a BitBlt from the window DC.
-	hdcMemDC = CreateCompatibleDC(hdcWindow);
-
-	if (!hdcMemDC)
-	{
-		MessageBox(hwnd, "CreateCompatibleDC has failed", "Failed", MB_OK);
-		goto done;
-	}
-
-	// Get the client area for size calculation.
-	RECT rcClient;
-	GetClientRect(hwnd, &rcClient);
-
-	// This is the best stretch mode.
-	SetStretchBltMode(hdcWindow, HALFTONE);
-
-	// The source DC is the entire screen, and the destination DC is the current window (HWND).
-	if (!StretchBlt(hdcWindow,
-		0, 0,
-		rcClient.right, rcClient.bottom,
-		hdcScreen,
-		0, 0,
-		GetSystemMetrics(SM_CXSCREEN),
-		GetSystemMetrics(SM_CYSCREEN),
-		SRCCOPY))
-	{
-		MessageBox(hwnd, "StretchBlt has failed", "Failed", MB_OK);
-		goto done;
-	}
-
-	// Create a compatible bitmap from the Window DC.
-	hbmScreen = CreateCompatibleBitmap(hdcScreen, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top);
-	if (!hbmScreen)
-	{
-		MessageBox(hwnd, "CreateCompatibleBitmap Failed", "Failed", MB_OK);
-		goto done;
-	}
-
-	// Select the compatible bitmap into the compatible memory DC.
-	SelectObject(hdcMemDC, hbmScreen);
-
-	// Bit block transfer into our compatible memory DC.
-	if (!BitBlt(hdcMemDC,
-		0, 0,
-		rcClient.right - rcClient.left, rcClient.bottom - rcClient.top,
-		hdcWindow,
-		0, 0,
-		SRCCOPY))
-	{
-		MessageBox(hwnd, "BitBlt has failed", "Failed", MB_OK);
-		goto done;
-	}
-
-
-
-	// Gets the "bits" from the bitmap, and copies them into a buffer 
-	// that's pointed to by lpbitmap.
-	GetBitmapBits(hbmScreen, FRAME_SIZE, data);
-
-
-
-	// Unlock and Free the DIB from the heap.
-	GlobalUnlock(hDIB);
-	GlobalFree(hDIB);
-
-	// Clean up.
-done:
-	DeleteObject(hbmScreen);
-	DeleteObject(hdcMemDC);
-	ReleaseDC(NULL, hdcScreen);
-	ReleaseDC(hwnd, hdcWindow);
-
-	return 0;
-}
 
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -841,7 +769,7 @@ void draw_pixels(HDC hdc, int xoff, int yoff, int width, int height, int scalew,
 	hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
 	// This scaling is a little strange because Stretch maintains aspect ratios
-	StretchBlt(hdc, xoff, yoff, scalew, scaleh, hdcMem, 0, 0, width, height, SRCCOPY);
+	StretchBlt(hdc, xoff, scaleh, scalew, -scaleh, hdcMem, 0, 0, width, height, SRCCOPY);
 	SelectObject(hdcMem, hOldBitmap);
 	DeleteDC(hdcMem);
 	DeleteObject(hBitmap);
