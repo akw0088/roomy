@@ -47,7 +47,7 @@ unsigned char cap_image_last[FRAME_SIZE];
 unsigned char data[FRAME_SIZE];
 
 
-int GetScreenCapture(HWND hwnd, unsigned char *data)
+int GetScreenCapture(HWND hwnd, unsigned char *data, unsigned int &size)
 {
 	HDC hdcScreen = NULL;
 	HDC hdc = NULL;
@@ -99,7 +99,7 @@ int GetScreenCapture(HWND hwnd, unsigned char *data)
 	//GetBitmapBits(hBitmap, (rect.right - rect.left) * (rect.bottom - rect.top) * 4, data);
 
 	GetDIBits(hdc, hBitmap, 0, (rect.bottom - rect.top), data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
-
+	size = (rect.right - rect.left) * (rect.bottom - rect.top) * bi.biBitCount / 8;
 	DeleteObject(hBitmap);
 	DeleteObject(hTargetDC);
 	ReleaseDC(NULL, hdcScreen);
@@ -406,27 +406,30 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_TIMER:
 	{
-		if (server)
+		if (server && client_sock != -1)
 		{
+			unsigned int data_size = 0;
 //			CaptureAnImage(hwnd);
-			GetScreenCapture(hwnd, data);
+			GetScreenCapture(hwnd, data, data_size);
 
 			// prevent duplicate frames
-			if (memcmp(data, cap_image_last, screen_size) != 0)
+			if (memcmp(data, cap_image_last, data_size) != 0)
 			{
 				header_t header;
 
 				static int seq = 0;
 				header.magic = 0xDEAFB4B3;
 				header.seq = seq++;
-				header.size = GetSystemMetrics(SM_CXSCREEN) * GetSystemMetrics(SM_CYSCREEN) * 4;
+				header.size = data_size;
 				// send to both connect and listen queues
 				printf("Adding frame to queue\r\n");
+
 				enqueue(&squeue, (unsigned char *)&header, sizeof(header_t));
-				enqueue(&squeue, data, screen_size);
+				enqueue(&squeue, data, header.size);
+
 				enqueue(&rqueue, (unsigned char *)&header, sizeof(header_t));
-				enqueue(&rqueue, data, screen_size);
-				memcpy(cap_image_last, data, screen_size);
+				enqueue(&rqueue, data, header.size);
+				memcpy(cap_image_last, data, header.size);
 			}
 			else
 			{
@@ -714,14 +717,14 @@ void read_socket(int &csock, char *buffer, unsigned int &size)
 	while (1)
 	{
 		int ret = 0;
-		ret = recv(csock, buffer, FRAME_SIZE + sizeof(header_t), 0);
+		ret = recv(csock, &buffer[size], FRAME_SIZE + sizeof(header_t), 0);
 		if (ret > 0)
 		{
 			printf("Read %d bytes from socket\r\n", ret);
 			size += ret;
 			if (size > FRAME_SIZE + sizeof(header_t))
 			{
-				printf("Read a frame already\r\n");
+				printf("Read at least one frame\r\n");
 				break;
 			}
 		}
