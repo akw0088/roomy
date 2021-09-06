@@ -44,3 +44,11 @@ typedef struct
 } bitmap_t;
 #pragma pack(pop)
 #endif
+
+
+typedef struct
+{
+	unsigned int magic;
+	unsigned int size;
+	unsigned int seq;
+} header_t;
