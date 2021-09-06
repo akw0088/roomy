@@ -43,7 +43,6 @@ typedef struct
 	dib_t		dib;
 } bitmap_t;
 #pragma pack(pop)
-#endif
 
 
 typedef struct
@@ -52,3 +51,4 @@ typedef struct
 	unsigned int size;
 	unsigned int seq;
 } header_t;
+#endif
