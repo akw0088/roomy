@@ -203,6 +203,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	static int listen_port = 65535;
 	static int connect_port = 65534;
 	static int listen_mode = 0;
+	static int debug = 0;
 	static char connect_ip[MAX_PATH] = "127.0.0.1";
 	static char listen_ip[MAX_PATH] = "127.0.0.1";
 	static char client_ip[MAX_PATH] = "";
@@ -213,7 +214,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	{
 		WSAStartup(MAKEWORD(2, 0), &WSAData);
-		RedirectIOToConsole(true);
 		SetTimer(hwnd, 0, 500, NULL);
 
 
@@ -221,6 +221,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		GetCurrentDirectory(MAX_PATH, path);
 		lstrcat(path, TEXT("\\roomy.ini"));
 
+		debug = GetPrivateProfileInt(TEXT("roomy"), TEXT("debug"), 0, path);
 		listen_port = GetPrivateProfileInt(TEXT("roomy"), TEXT("listen"), 65535, path);
 		connect_port = GetPrivateProfileInt(TEXT("roomy"), TEXT("connect"), 65535, path);
 		GetPrivateProfileString(TEXT("roomy"), TEXT("ip"), "127.0.0.1", connect_ip, MAX_PATH, path);
@@ -232,6 +233,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			listen_socket(server_sock, listen_port);
 			set_sock_options(server_sock);
 		}
+		RedirectIOToConsole(debug);
 
 		break;
 	}
