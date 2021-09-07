@@ -354,9 +354,9 @@ int Roomy::connect_socket(char *ip_addr, unsigned short port, int &sock)
 
 		if (ret == SOCKET_ERROR)
 		{
-			ret = WSAGetLastError();
+			int err = WSAGetLastError();
 
-			switch (ret)
+			switch (err)
 			{
 			case WSAETIMEDOUT:
 				printf("Fatal Error: Connecting to %s timed out.\n", ip_addr);
@@ -394,7 +394,7 @@ int Roomy::connect_socket(char *ip_addr, unsigned short port, int &sock)
 		FD_SET(sock, &write_set);
 
 		timeout.tv_sec = 0;
-		timeout.tv_usec = 0;
+		timeout.tv_usec = 5;
 
 		int ret = select(sock + 1, &read_set, &write_set, NULL, &timeout);
 		if (ret < 0)
@@ -405,11 +405,13 @@ int Roomy::connect_socket(char *ip_addr, unsigned short port, int &sock)
 		else if (ret == 0)
 		{
 			static int count = 0;
-			printf("select() timed out\r\n");
+			printf("select() timed out %d of 10\r\n", count);
 			count++;
 
-			if (count == 5 * (200000))
+			if (count >= 10)
 			{
+				count = 0;
+				printf("Resetting socket\r\n");
 				closesocket(sock);
 				sock = -1;
 			}
@@ -433,6 +435,7 @@ int Roomy::connect_socket(char *ip_addr, unsigned short port, int &sock)
 			}
 			else
 			{
+				printf("SO_ERROR was not zero\r\n");
 				closesocket(sock);
 				sock = -1;
 			}
@@ -457,9 +460,9 @@ void Roomy::handle_listen(int &sock, int &csock, char *ipstr)
 	}
 	else
 	{
-		int ret = WSAGetLastError();
+		int err = WSAGetLastError();
 
-		switch (ret)
+		switch (err)
 		{
 		case WSAETIMEDOUT:
 			printf("Fatal Error: timed out.\n");
@@ -473,7 +476,7 @@ void Roomy::handle_listen(int &sock, int &csock, char *ipstr)
 		case WSAEWOULDBLOCK:
 			return;
 		default:
-			printf("Fatal Error: %d\n", ret);
+			printf("Fatal Error: %d\n", err);
 			break;
 		}
 
@@ -509,28 +512,26 @@ void Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 		}
 		else if (ret < 0)
 		{
-			int ret = WSAGetLastError();
+			int err = WSAGetLastError();
 
-			if (ret == WSAEWOULDBLOCK)
-			{
-				return;
-			}
-
-			switch (ret)
+			switch (err)
 			{
 			case WSAETIMEDOUT:
+				csock = SOCKET_ERROR;
 				break;
 			case WSAECONNREFUSED:
+				csock = SOCKET_ERROR;
 				break;
 			case WSAEHOSTUNREACH:
+				csock = SOCKET_ERROR;
+				break;
+			case WSAEWOULDBLOCK:
 				break;
 			default:
-				printf("Fatal Error: %d\n", ret);
+				printf("Fatal Error: %d\n", err);
+				csock = SOCKET_ERROR;
 				break;
 			}
-
-			csock = -1;
-			csock = SOCKET_ERROR;
 			break;
 		}
 	}
