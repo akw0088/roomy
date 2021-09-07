@@ -199,7 +199,7 @@ void Roomy::capture()
 	else
 	{
 		// client mode
-		if (client_sock == SOCKET_ERROR)
+		if (client_sock == SOCKET_ERROR && listen_mode)
 		{
 			handle_listen(server_sock, client_sock, client_ip);
 		}
@@ -454,6 +454,31 @@ void Roomy::handle_listen(int &sock, int &csock, char *ipstr)
 		inet_ntop(AF_INET, &(csockaddr.sin_addr), ipstr, MAX_PATH);
 		printf("Accepted connection from %s\n", ipstr);
 		set_sock_options(csock);
+	}
+	else
+	{
+		int ret = WSAGetLastError();
+
+		switch (ret)
+		{
+		case WSAETIMEDOUT:
+			printf("Fatal Error: timed out.\n");
+			break;
+		case WSAECONNREFUSED:
+			printf("Fatal Error: refused connection.\n(Server program is not running)\n");
+			break;
+		case WSAEHOSTUNREACH:
+			printf("Fatal Error: router sent ICMP packet (destination unreachable)\n");
+			break;
+		case WSAEWOULDBLOCK:
+			return;
+		default:
+			printf("Fatal Error: %d\n", ret);
+			break;
+		}
+
+		return;
+
 	}
 }
 
