@@ -213,7 +213,49 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		break;
 	}
+	case WM_MOUSEMOVE:
+	{
+		int	x, y;
+		button_t button;
 
+		button.word = 0;
+		x = LOWORD(lParam);
+		y = HIWORD(lParam);
+
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)x / (client_area.right - client_area.left);
+
+
+		if (wParam & MK_LBUTTON)
+		{
+			button.bits.left = 1;
+		}
+
+		if (wParam & MK_MBUTTON)
+		{
+			button.bits.middle = 1;
+		}
+
+		if (wParam & MK_RBUTTON)
+		{
+			button.bits.right = 1;
+		}
+
+		if (wParam & MK_XBUTTON1)
+		{
+			button.bits.right = 1;
+		}
+
+		if (wParam & MK_XBUTTON2)
+		{
+			button.bits.right = 1;
+		}
+
+
+		roomy.mousemove(xpos, ypos, button);
+
+		break;
+	}
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;

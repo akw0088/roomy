@@ -34,6 +34,16 @@ public:
 	Roomy();
 	void init(void *param1, void *param2, int xres, int yres);
 	void step(int data_size);
+	void mousemove(float x, float y, button_t button);
+	void send_input(input_t *input);
+	void handle_server_listenmode();
+	void handle_client_connectmode();
+
+	void handle_server_connectmode();
+	void handle_client_listenmode();
+
+
+
 	void capture();
 	void destroy();
 
