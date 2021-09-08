@@ -225,7 +225,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (roomy.server == false)
 		{
 			draw_pixels(hdc, 0, 0,
-				GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
+				roomy.remote_width, roomy.remote_height,
 				client_area.right, client_area.bottom,
 				roomy.get_data());
 		}

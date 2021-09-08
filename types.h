@@ -49,6 +49,7 @@ typedef struct
 {
 	unsigned int magic;
 	unsigned int size;
-	unsigned int seq;
+	unsigned int xres;
+	unsigned int yres;
 } header_t;
 #endif

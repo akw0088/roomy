@@ -20,8 +20,12 @@
 
 
 
-// assuming server and client have same resolution for now
-#define FRAME_SIZE (1920 * 1080 * 4)
+#define FRAME_SIZE (3840 * 2160 * 4)
+#define MAX_WIDTH 3840
+#define MAX_HEIGHT 2160
+
+#define MAX(x,y) (x) > (y) ? (x) : (y)
+#define MIN(x,y) (x) < (y) ? (x) : (y)
 
 
 class Roomy
@@ -34,7 +38,11 @@ public:
 	void destroy();
 
 	unsigned char *get_data();
+
 	int server;
+	unsigned int remote_width;
+	unsigned int remote_height;
+
 private:
 	int listen_socket(int &sock, unsigned short port);
 	int set_sock_options(int sock);
@@ -61,6 +69,11 @@ private:
 	unsigned int screen_width;
 	unsigned int screen_height;
 	unsigned int screen_size;
+
+
+	unsigned int remote_size;
+	unsigned int packet_size;
+
 
 	queue_t squeue;
 	queue_t rqueue;

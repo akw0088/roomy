@@ -28,7 +28,10 @@ void Roomy::init(void *param1, void *param2, int xres, int yres)
 	screen_width = xres;
 	screen_height = yres;
 	screen_size = xres * yres * 4;
-
+	remote_size = FRAME_SIZE; // init to max size 4k
+	remote_width = MAX_WIDTH;
+	remote_height = MAX_HEIGHT;
+	packet_size = MIN(FRAME_SIZE, remote_size) + sizeof(header_t);
 
 	printf("listen_mode is %d\r\n", listen_mode);
 	if (listen_mode == 1)
@@ -50,7 +53,8 @@ void Roomy::step(int data_size)
 
 			static int seq = 0;
 			header.magic = 0xDEAFB4B3;
-			header.seq = seq++;
+			header.xres = screen_width;
+			header.yres = screen_height;
 			header.size = data_size;
 			// send to both connect and listen queues
 			printf("Adding frame to queue\r\n");
@@ -161,9 +165,9 @@ void Roomy::capture()
 
 				dequeue_peek(&squeue, sbuffer, sizeof(header_t));
 
-				if (header->magic == 0xDEAFB4B3 && header->size == screen_size)
+				if (header->magic == 0xDEAFB4B3 && header->size == header->xres * header->yres * 4)
 				{
-					dequeue(&squeue, sbuffer, screen_size + sizeof(header_t));
+					dequeue(&squeue, sbuffer, header->size + sizeof(header_t));
 				}
 				else
 				{
@@ -172,8 +176,8 @@ void Roomy::capture()
 					continue;
 				}
 
-				printf("Atempting to send %d bytes\r\n", screen_size + sizeof(header_t));
-				int ret = send(connect_sock, (char *)sbuffer, screen_size + sizeof(header_t), 0);
+				printf("Atempting to send %d bytes\r\n", header->size + sizeof(header_t));
+				int ret = send(connect_sock, (char *)sbuffer, header->size + sizeof(header_t), 0);
 				if (ret == -1)
 				{
 					int err = WSAGetLastError();
@@ -187,10 +191,10 @@ void Roomy::capture()
 					}
 					break;
 				}
-				else if (ret > 0 && ret < screen_size)
+				else if (ret > 0 && ret < header->size)
 				{
 					// partial send occurred (full buffer?)
-					enqueue_front(&squeue, &sbuffer[ret], screen_size - ret);
+					enqueue_front(&squeue, &sbuffer[ret], header->size - ret);
 				}
 			}
 
@@ -210,15 +214,19 @@ void Roomy::capture()
 		}
 
 
-		while (rqueue.size >= screen_size + sizeof(header_t))
+		while (rqueue.size >= packet_size)
 		{
 			header_t *header = (header_t *)rbuffer;
 
 			dequeue_peek(&rqueue, rbuffer, sizeof(header_t));
 
-			if (header->magic == 0xDEAFB4B3 && header->size == screen_size)
+			if (header->magic == 0xDEAFB4B3 && header->size == header->xres * header->yres * 4)
 			{
-				dequeue(&rqueue, rbuffer, screen_size + sizeof(header_t));
+				remote_size = header->size;
+				remote_width = header->xres;
+				remote_height = header->yres;
+				packet_size = MIN(FRAME_SIZE, remote_size) + sizeof(header_t);
+				dequeue(&rqueue, rbuffer, header->size + sizeof(header_t));
 			}
 			else
 			{
@@ -239,15 +247,19 @@ void Roomy::capture()
 			enqueue(&squeue, sbuffer, rsize);
 		}
 
-		while (squeue.size >= screen_size + sizeof(header_t) && connect_sock != SOCKET_ERROR)
+		while (squeue.size >= packet_size && connect_sock != SOCKET_ERROR)
 		{
 			header_t *header = (header_t *)sbuffer;
 
 			dequeue_peek(&squeue, sbuffer, sizeof(header_t));
 
-			if (header->magic == 0xDEAFB4B3 && header->size == screen_size)
+			if (header->magic == 0xDEAFB4B3 && header->size == header->xres * header->yres * 4)
 			{
-				dequeue(&squeue, sbuffer, screen_size + sizeof(header_t));
+				remote_size = header->size;
+				remote_width = header->xres;
+				remote_height = header->yres;
+				packet_size = MIN(FRAME_SIZE, remote_size) + sizeof(header_t);
+				dequeue(&squeue, sbuffer, header->size + sizeof(header_t));
 			}
 			else
 			{
