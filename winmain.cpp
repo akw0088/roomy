@@ -290,6 +290,27 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		roomy.mousemove(xpos, ypos, button);
 		break;
 	}
+	case WM_XBUTTONUP:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
+
+
+		if (HIWORD(wParam) & XBUTTON1)
+		{
+			button.bits.x1 = 2;
+		}
+
+		if (HIWORD(wParam) & XBUTTON2)
+		{
+			button.bits.x2 = 2;
+		}
+
+		roomy.mousemove(xpos, ypos, button);
+		break;
+	}
 	case WM_LBUTTONUP:
 	{
 		int x = LOWORD(lParam);

@@ -132,37 +132,47 @@ void Roomy::handle_input(input_t *input)
 			printf("Mouse wheel %d\r\n", (short)input->button.bits.wheel_amount);
 
 			mouse_event(MOUSEEVENTF_WHEEL, 0, 0, (short)input->button.bits.wheel_amount, 0);
+			last_button.word = 0;
 			return;
 		}
 		else if (input->button.bits.hwheel)
 		{
 			printf("Mouse hwheel %d\r\n", (short)input->button.bits.wheel_amount);
 			mouse_event(MOUSEEVENTF_HWHEEL, 0, 0, (short)input->button.bits.wheel_amount, 0);
+			last_button.word = 0;
 			return;
 		}
 		else if (input->button.bits.x1 == 1)
 		{
-			in.mi.mouseData = XBUTTON1;
-			in.mi.dwFlags |= MOUSEEVENTF_XDOWN;
+//			in.mi.mouseData = XBUTTON1;
+//			in.mi.dwFlags |= MOUSEEVENTF_XDOWN;
 			printf("Mouse X1 Down\r\n");
+			mouse_event(MOUSEEVENTF_XDOWN, in.mi.dx, in.mi.dy, XBUTTON1, 0);
+			return;
 		}
 		else if (input->button.bits.x2 == 1)
 		{
-			in.mi.mouseData = XBUTTON2;
-			in.mi.dwFlags |= MOUSEEVENTF_XDOWN;
+//			in.mi.mouseData = XBUTTON2;
+//			in.mi.dwFlags |= MOUSEEVENTF_XDOWN;
 			printf("Mouse X2 Down\r\n");
+			mouse_event(MOUSEEVENTF_XDOWN, in.mi.dx, in.mi.dy, XBUTTON2, 0);
+			return;
 		}
 		else if (input->button.bits.x1 == 2)
 		{
-			in.mi.mouseData = XBUTTON1;
-			in.mi.dwFlags |= MOUSEEVENTF_XUP;
+//			in.mi.mouseData = XBUTTON1;
+//			in.mi.dwFlags |= MOUSEEVENTF_XUP;
 			printf("Mouse X1 Up\r\n");
+			mouse_event(MOUSEEVENTF_XUP, in.mi.dx, in.mi.dy, XBUTTON1, 0);
+			return;
 		}
 		else if (input->button.bits.x2 == 2)
 		{
-			in.mi.mouseData = XBUTTON2;
-			in.mi.dwFlags |= MOUSEEVENTF_XUP;
+//			in.mi.mouseData = XBUTTON2;
+//			in.mi.dwFlags |= MOUSEEVENTF_XUP;
 			printf("Mouse X2 Up\r\n");
+			mouse_event(MOUSEEVENTF_XUP, in.mi.dx, in.mi.dy, XBUTTON2, 0);
+			return;
 		}
 
 
