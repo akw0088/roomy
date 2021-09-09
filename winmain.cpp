@@ -171,6 +171,8 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	static WSADATA	WSAData;
 	static RECT		client_area;
 	static Roomy roomy;
+	static button_t button = { 0 };
+
 
 
 	switch (message)
@@ -180,8 +182,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		int screen_width = GetSystemMetrics(SM_CXSCREEN);
 		int screen_height = GetSystemMetrics(SM_CYSCREEN);
 
-
-
 		WSAStartup(MAKEWORD(2, 0), &WSAData);
 		roomy.init((void *)hwnd, NULL, screen_width, screen_height);
 		SetTimer(hwnd, 0, 500, NULL);
@@ -190,7 +190,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WMU_CAPTURE:
 	{
 		roomy.capture();
-		InvalidateRect(hwnd, NULL, 0);
 		break;
 	}
 	case WM_TIMER:
@@ -213,43 +212,138 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		break;
 	}
-	case WM_MOUSEMOVE:
+	case WM_MOUSEWHEEL:
+	case WM_MOUSEHWHEEL:
 	{
-		int	x, y;
-		button_t button;
-
-		button.word = 0;
-		x = LOWORD(lParam);
-		y = HIWORD(lParam);
-
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
 		float xpos = (float)x / (client_area.right - client_area.left);
-		float ypos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
 
+		short int zDelta = (short)HIWORD(wParam);
 
-		if (wParam & MK_LBUTTON)
-		{
-			button.bits.left = 1;
-		}
+		if (message == WM_MOUSEWHEEL)
+			button.bits.wheel = 1;
+		else
+			button.bits.hwheel = 1;
 
-		if (wParam & MK_MBUTTON)
-		{
-			button.bits.middle = 1;
-		}
+		button.bits.wheel_amount = zDelta / 120;
 
-		if (wParam & MK_RBUTTON)
-		{
-			button.bits.right = 1;
-		}
+		roomy.mousemove(xpos, ypos, button);
+
+		button.bits.wheel = 0;
+		button.bits.hwheel = 0;
+		break;
+	}
+	case WM_LBUTTONDOWN:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
+
+		button.bits.left = 1;
+		roomy.mousemove(xpos, ypos, button);
+
+		break;
+	}
+	case WM_RBUTTONDOWN:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
+
+		button.bits.right = 1;
+		roomy.mousemove(xpos, ypos, button);
+		break;
+	}
+	case WM_MBUTTONDOWN:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
+
+		button.bits.middle = 1;
+		roomy.mousemove(xpos, ypos, button);
+		break;
+	}
+	case WM_XBUTTONDOWN:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
+
 
 		if (wParam & MK_XBUTTON1)
 		{
-			button.bits.right = 1;
+			button.bits.x1 = 1;
 		}
 
 		if (wParam & MK_XBUTTON2)
 		{
-			button.bits.right = 1;
+			button.bits.x2 = 1;
 		}
+
+		roomy.mousemove(xpos, ypos, button);
+		break;
+	}
+	case WM_LBUTTONUP:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
+
+		button.bits.left = 2;
+		roomy.mousemove(xpos, ypos, button);
+
+		break;
+	}
+	case WM_RBUTTONUP:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
+
+		button.bits.right = 2;
+		roomy.mousemove(xpos, ypos, button);
+
+		break;
+	}
+	case WM_MBUTTONUP:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
+
+		if (wParam & MK_XBUTTON1)
+		{
+			button.bits.x1 = 2;
+		}
+
+		if (wParam & MK_XBUTTON2)
+		{
+			button.bits.x2 = 2;
+		}
+
+		roomy.mousemove(xpos, ypos, button);
+
+		break;
+	}
+	case WM_MOUSEMOVE:
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+
+		// clear it, but reset for dragging below
+		button.word = 0;
+		float xpos = (float)x / (client_area.right - client_area.left);
+		float ypos = (float)y / (client_area.bottom - client_area.top);
 
 
 		roomy.mousemove(xpos, ypos, button);

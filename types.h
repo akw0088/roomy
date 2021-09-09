@@ -59,16 +59,16 @@ typedef struct
 
 typedef struct
 {
-	unsigned int left : 1,
-		middle : 1,
-		right : 1,
-		x1 : 1,
-		x2 : 1,
-		wheel : 1,
+	unsigned int left : 2,
+		middle : 2,
+		right : 2,
+		x1 : 2,
+		x2 : 2,
+		wheel : 2,
 		hwheel : 1,
 		reserved0 : 1,
 		reserved1 : 8,
-		wheel_amount : 16;
+		wheel_amount : 10;
 } button_bits_t;
 
 typedef union

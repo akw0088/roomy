@@ -35,13 +35,10 @@ public:
 	void init(void *param1, void *param2, int xres, int yres);
 	void step(int data_size);
 	void mousemove(float x, float y, button_t button);
-	void send_input(input_t *input);
-	void handle_server_listenmode();
-	void handle_client_connectmode();
+	void handle_input(input_t *input);
 
-	void handle_server_connectmode();
-	void handle_client_listenmode();
-
+	void handle_server(int &sock, client_state_t &state);
+	void handle_client(int &sock, client_state_t &state);
 
 
 	void capture();
@@ -58,7 +55,7 @@ private:
 	int set_sock_options(int sock);
 	int connect_socket(char *ip_addr, unsigned short port, int &sock);
 	void handle_listen(int &sock, int &csock, char *ipstr);
-	void read_socket(int &csock, char *buffer, unsigned int &size);
+	int read_socket(int &csock, char *buffer, unsigned int &size);
 	void read_config();
 
 
@@ -84,6 +81,7 @@ private:
 	unsigned int remote_size;
 	unsigned int packet_size;
 
+	unsigned int tick;
 
 	queue_t squeue;
 	queue_t rqueue;
@@ -93,5 +91,9 @@ private:
 
 	unsigned char cap_image_last[FRAME_SIZE];
 	unsigned char data[FRAME_SIZE];
+
+#ifdef WIN32
+	HWND hwnd;
+#endif
 };
 #endif

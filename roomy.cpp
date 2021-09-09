@@ -21,7 +21,7 @@ Roomy::Roomy()
 void Roomy::init(void *param1, void *param2, int xres, int yres)
 {
 #ifdef WIN32
-	HWND hwnd = (HWND)param1;
+	hwnd = (HWND)param1;
 #endif
 	read_config();
 
@@ -43,31 +43,35 @@ void Roomy::init(void *param1, void *param2, int xres, int yres)
 
 void Roomy::step(int data_size)
 {
-	if (server &&
-		( (listen_mode != 0  && client_sock != -1) ||
-		  (listen_mode == 0 && connect_sock != -1 && connect_state == CONNECTED) )
-		)
+	tick++;
+
+	if (server)
 	{
-		// prevent duplicate frames
-		if (memcmp(data, cap_image_last, data_size) != 0)
+		if (((listen_mode != 0 && client_sock != -1) ||
+			(listen_mode == 0 && connect_sock != -1 && connect_state == CONNECTED))
+			)
 		{
-			header_t header;
+			// prevent duplicate frames
+			if (memcmp(data, cap_image_last, data_size) != 0)
+			{
+				header_t header;
 
-			static int seq = 0;
-			header.magic = 0xDEAFB4B3;
-			header.xres = screen_width;
-			header.yres = screen_height;
-			header.size = data_size;
-			// send to both connect and listen queues
-			printf("Adding frame to queue\r\n");
+				static int seq = 0;
+				header.magic = 0xDEAFB4B3;
+				header.xres = screen_width;
+				header.yres = screen_height;
+				header.size = data_size;
+				// send to both connect and listen queues
+				printf("Adding frame to queue %d\r\n", seq++);
 
-			enqueue(&squeue, (unsigned char *)&header, sizeof(header_t));
-			enqueue(&squeue, data, header.size);
-			memcpy(cap_image_last, data, header.size);
-		}
-		else
-		{
-			printf("Duplicate frame\r\n");
+				enqueue(&squeue, (unsigned char *)&header, sizeof(header_t));
+				enqueue(&squeue, data, header.size);
+				memcpy(cap_image_last, data, header.size);
+			}
+			else
+			{
+				printf("Duplicate frame\r\n");
+			}
 		}
 	}
 
@@ -98,11 +102,11 @@ void Roomy::step(int data_size)
 	}
 
 
+	InvalidateRect(hwnd, NULL, 0);
 }
 
-void Roomy::send_input(input_t *input)
+void Roomy::handle_input(input_t *input)
 {
-	printf("Got input from client\r\n");
 	RECT rect;
 	INPUT in = { 0 };
 	static button_t last_button = { 0 };
@@ -112,185 +116,111 @@ void Roomy::send_input(input_t *input)
 	rect.right = screen_width;
 	rect.bottom = screen_height;
 
-	//							ClipCursor(&rect);
-	//							SetCursorPos(input->x * screen_width, input->y * screen_height);
-
 	// set mouse position
 	in.type = INPUT_MOUSE;
-	in.mi.dwFlags = MOUSEEVENTF_ABSOLUTE;
-	in.mi.dx = (LONG)(input->x * screen_width);
-	in.mi.dy = (LONG)(input->y * screen_height);
+	in.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
+	in.mi.dx = (LONG)(input->x * 65535);
+	in.mi.dy = (LONG)(input->y * 65535);
+
+	if (input->button.word != last_button.word)
+	{
+		printf("Button = 0x%08X\r\n", input->button.word);
+		printf("LastButton = 0x%08X\r\n", input->button.word);
+
+		if (input->button.bits.wheel)
+		{
+			in.mi.dwFlags |= MOUSEEVENTF_WHEEL;
+			in.mi.mouseData = input->button.bits.wheel_amount * 120;
+			printf("Mouse wheel %d\r\n", input->button.bits.wheel_amount);
+		}
+		else if (input->button.bits.hwheel)
+		{
+			in.mi.dwFlags |= MOUSEEVENTF_HWHEEL;
+			in.mi.mouseData = input->button.bits.wheel_amount * 120;
+			printf("Mouse hwheel %d\r\n", input->button.bits.wheel_amount);
+		}
+		else if (input->button.bits.x1 == 1)
+		{
+			in.mi.mouseData = XBUTTON1;
+			in.mi.dwFlags |= MOUSEEVENTF_XDOWN;
+			printf("Mouse X1 Down\r\n");
+		}
+		else if (input->button.bits.x2 == 1)
+		{
+			in.mi.mouseData = XBUTTON2;
+			in.mi.dwFlags |= MOUSEEVENTF_XDOWN;
+			printf("Mouse X2 Down\r\n");
+		}
+		else if (input->button.bits.x1 == 2)
+		{
+			in.mi.mouseData = XBUTTON1;
+			in.mi.dwFlags |= MOUSEEVENTF_XUP;
+			printf("Mouse X1 Up\r\n");
+		}
+		else if (input->button.bits.x2 == 2)
+		{
+			in.mi.mouseData = XBUTTON2;
+			in.mi.dwFlags |= MOUSEEVENTF_XUP;
+			printf("Mouse X2 Up\r\n");
+		}
 
 
-	if (input->button.bits.wheel)
-	{
-		in.mi.dwFlags |= MOUSEEVENTF_WHEEL;
-		in.mi.mouseData = input->button.bits.wheel_amount * 120;
-		printf("Mouse wheel %d\r\n", input->button.bits.wheel_amount);
-	}
-	else if (input->button.bits.hwheel)
-	{
-		in.mi.dwFlags |= MOUSEEVENTF_HWHEEL;
-		in.mi.mouseData = input->button.bits.wheel_amount * 120;
-		printf("Mouse hwheel %d\r\n", input->button.bits.wheel_amount);
-	}
-	else if (input->button.bits.x1 && last_button.bits.x1 == 0)
-	{
-		in.mi.mouseData = XBUTTON1;
-		in.mi.dwFlags |= MOUSEEVENTF_XDOWN;
-		printf("Mouse X1 Down\r\n");
-	}
-	else if (input->button.bits.x2 && last_button.bits.x2 == 0)
-	{
-		in.mi.mouseData = XBUTTON2;
-		in.mi.dwFlags |= MOUSEEVENTF_XDOWN;
-		printf("Mouse X2 Down\r\n");
-	}
-	else if (input->button.bits.x1 == 0 && last_button.bits.x1 == 1)
-	{
-		in.mi.mouseData = XBUTTON1;
-		in.mi.dwFlags |= MOUSEEVENTF_XUP;
-		printf("Mouse X1 Up\r\n");
-	}
-	else if (input->button.bits.x2 == 0 && last_button.bits.x2 == 1)
-	{
-		in.mi.mouseData = XBUTTON2;
-		in.mi.dwFlags |= MOUSEEVENTF_XUP;
-		printf("Mouse X2 Up\r\n");
-	}
+		// check for clicks
+		if (input->button.bits.left == 1)
+		{
+			in.mi.dwFlags |= MOUSEEVENTF_LEFTDOWN;
+			printf("Mouse Left down\r\n");
+		}
+
+		if (input->button.bits.middle == 1)
+		{
+			in.mi.dwFlags |= MOUSEEVENTF_MIDDLEDOWN;
+			printf("Mouse Mid down\r\n");
+		}
+
+		if (input->button.bits.right == 1)
+		{
+			in.mi.dwFlags |= MOUSEEVENTF_RIGHTDOWN;
+			printf("Mouse Right down\r\n");
+		}
 
 
-	// check for clicks
-	if (input->button.bits.left && last_button.bits.left == 0)
-	{
-		in.mi.dwFlags |= MOUSEEVENTF_LEFTDOWN;
-		printf("Mouse Left down\r\n");
+		// check for releases
+		if (input->button.bits.left == 2)
+		{
+			in.mi.dwFlags |= MOUSEEVENTF_LEFTUP;
+			printf("Mouse Left up\r\n");
+		}
+
+		if (input->button.bits.middle == 2)
+		{
+			in.mi.dwFlags |= MOUSEEVENTF_MIDDLEUP;
+			printf("Mouse Mid up\r\n");
+		}
+
+		if (input->button.bits.right == 2)
+		{
+			in.mi.dwFlags |= MOUSEEVENTF_RIGHTUP;
+			printf("Mouse right up\r\n");
+		}
 	}
 
-	if (input->button.bits.middle && last_button.bits.middle == 0)
-	{
-		in.mi.dwFlags = MOUSEEVENTF_MIDDLEDOWN;
-		printf("Mouse Mid down\r\n");
-	}
-
-	if (input->button.bits.right && last_button.bits.right == 0)
-	{
-		in.mi.dwFlags = MOUSEEVENTF_RIGHTDOWN;
-		printf("Mouse Right down\r\n");
-	}
-
-
-	// check for releases
-	if (input->button.bits.left == 0 && last_button.bits.left)
-	{
-		in.mi.dwFlags |= MOUSEEVENTF_LEFTUP;
-		printf("Mouse Left up\r\n");
-	}
-
-	if (input->button.bits.middle == 0 && last_button.bits.middle)
-	{
-		in.mi.dwFlags = MOUSEEVENTF_MIDDLEUP;
-		printf("Mouse Mid up\r\n");
-	}
-
-	if (input->button.bits.right == 0 && last_button.bits.right)
-	{
-		in.mi.dwFlags = MOUSEEVENTF_RIGHTUP;
-		printf("Mouse right up\r\n");
-	}
-
-	printf("Sending input to OS\r\n");
 	SendInput(1, &in, sizeof(INPUT));
 }
 
 
-void Roomy::handle_server_listenmode()
+void Roomy::handle_server(int &sock, client_state_t &state)
 {
 	unsigned int rsize = 0;
 
-	if (client_sock == SOCKET_ERROR)
+	if (sock != SOCKET_ERROR && state == CONNECTED)
 	{
-		handle_listen(server_sock, client_sock, client_ip);
-	}
-	else
-	{
-		read_socket(client_sock, (char *)rbuffer, rsize);
-		enqueue(&rqueue, rbuffer, rsize);
-	}
+		int ret = 0;
 
-	while (rqueue.size >= sizeof(input_t))
-	{
-
-		dequeue_peek(&rqueue, rbuffer, sizeof(input_t));
-
-		input_t *input = (input_t *)rbuffer;
-		if (input->magic == 0xDEADBEEF)
+		if (ret = read_socket(sock, (char *)rbuffer, rsize) != 0)
 		{
-			printf("Good input\r\n");
-			dequeue(&rqueue, rbuffer, sizeof(input_t));
-			send_input(input);
+			state = DISCONNECTED;
 		}
-		else
-		{
-			printf("Bad input, dropping: 0x08%X\r\n", *((unsigned int *)&rbuffer[0]));
-			// drop 4 bytes and try again
-			dequeue(&rqueue, rbuffer, 1);
-			continue;
-		}
-	}
-
-	while (squeue.size >= packet_size && client_sock != SOCKET_ERROR)
-	{
-		header_t *header = (header_t *)sbuffer;
-
-		dequeue_peek(&squeue, sbuffer, sizeof(header_t));
-
-		if (header->magic == 0xDEAFB4B3 && header->size == header->xres * header->yres * 4)
-		{
-			dequeue(&squeue, sbuffer, header->size + sizeof(header_t));
-		}
-		else
-		{
-			// drop 4 bytes and try again
-			dequeue(&squeue, sbuffer, 4);
-			continue;
-		}
-
-//		printf("Atempting to send %d bytes\r\n", header->size + sizeof(header_t));
-		int ret = send(client_sock, (char *)sbuffer, header->size + sizeof(header_t), 0);
-		if (ret == -1)
-		{
-			int err = WSAGetLastError();
-
-			if (err != WSAEWOULDBLOCK)
-			{
-				printf("send returned -1 error %d\r\n", err);
-				connect_state = DISCONNECTED;
-				closesocket(client_sock);
-				client_sock = -1;
-			}
-			break;
-		}
-		else if (ret > 0 && (unsigned int)ret < header->size)
-		{
-			// partial send occurred (full buffer?)
-			enqueue_front(&squeue, &sbuffer[ret], header->size - ret);
-		}
-	}
-}
-
-
-void Roomy::handle_server_connectmode()
-{
-	unsigned int rsize = 0;
-
-	if (connect_sock != SOCKET_ERROR && connect_state == CONNECTED)
-	{
-		read_socket(connect_sock, (char *)rbuffer, rsize);
-		enqueue(&rqueue, rbuffer, rsize);
-
-		if (rsize > 0)
-			printf("Read %d bytes of input\r\n", rsize);
 	}
 
 	while (rqueue.size >= sizeof(input_t))
@@ -298,22 +228,21 @@ void Roomy::handle_server_connectmode()
 		dequeue_peek(&rqueue, rbuffer, sizeof(input_t));
 
 		input_t *input = (input_t *)rbuffer;
+
 		if (input->magic == 0xDEADBEEF)
 		{
-			printf("Good input\r\n");
 			dequeue(&rqueue, rbuffer, sizeof(input_t));
-			send_input(input);
+			handle_input(input);
 		}
 		else
 		{
-			printf("Bad input, dropping: 0x08%X\r\n", *((unsigned int *)&rbuffer[0]));
-			// drop 4 bytes and try again
+			// drop bytes and try again
 			dequeue(&rqueue, rbuffer, 1);
 			continue;
 		}
 	}
 
-	while (squeue.size >= packet_size && connect_sock != SOCKET_ERROR)
+	while (squeue.size >= packet_size && sock != SOCKET_ERROR)
 	{
 		header_t *header = (header_t *)sbuffer;
 
@@ -331,7 +260,7 @@ void Roomy::handle_server_connectmode()
 		}
 
 		//		printf("Atempting to send %d bytes\r\n", header->size + sizeof(header_t));
-		int ret = send(connect_sock, (char *)sbuffer, header->size + sizeof(header_t), 0);
+		int ret = send(sock, (char *)sbuffer, header->size + sizeof(header_t), 0);
 		if (ret == -1)
 		{
 			int err = WSAGetLastError();
@@ -339,9 +268,9 @@ void Roomy::handle_server_connectmode()
 			if (err != WSAEWOULDBLOCK)
 			{
 				printf("send returned -1 error %d\r\n", err);
-				connect_state = DISCONNECTED;
-				closesocket(connect_sock);
-				connect_sock = -1;
+				state = DISCONNECTED;
+				closesocket(sock);
+				sock = -1;
 			}
 			break;
 		}
@@ -353,14 +282,19 @@ void Roomy::handle_server_connectmode()
 	}
 }
 
-void Roomy::handle_client_connectmode()
+
+void Roomy::handle_client(int &sock, client_state_t &state)
 {
 	unsigned int rsize = 0;
 
-	if (connect_sock != SOCKET_ERROR && connect_state == CONNECTED)
+	if (sock != SOCKET_ERROR && state == CONNECTED)
 	{
-		read_socket(connect_sock, (char *)rbuffer, rsize);
-		enqueue(&rqueue, rbuffer, rsize);
+		int ret = 0;
+
+		if (ret = read_socket(sock, (char *)rbuffer, rsize) != 0)
+		{
+			state = DISCONNECTED;
+		}
 	}
 
 	while (rqueue.size >= packet_size)
@@ -368,7 +302,6 @@ void Roomy::handle_client_connectmode()
 		header_t *header = (header_t *)rbuffer;
 
 		dequeue_peek(&rqueue, rbuffer, sizeof(header_t));
-
 		if (header->magic == 0xDEAFB4B3 && header->size == header->xres * header->yres * 4)
 		{
 			remote_size = header->size;
@@ -390,16 +323,17 @@ void Roomy::handle_client_connectmode()
 		// client draws from data buffer, so thats it
 	}
 
-	while (squeue.size >= sizeof(input_t) && connect_sock != SOCKET_ERROR)
+	while (squeue.size >= sizeof(input_t) && sock != SOCKET_ERROR)
 	{
-		dequeue_peek(&rqueue, rbuffer, sizeof(input_t));
+		dequeue_peek(&squeue, sbuffer, sizeof(input_t));
 
-		input_t *input = (input_t *)rbuffer;
-		if (input->magic == 0xDEAFB4B3)
+		input_t *input = (input_t *)sbuffer;
+
+		if (input->magic == 0xDEADBEEF)
 		{
-			dequeue(&rqueue, rbuffer, sizeof(input_t));
+			dequeue(&squeue, sbuffer, sizeof(input_t));
 
-			int ret = send(connect_sock, (char *)input, sizeof(input_t), 0);
+			int ret = send(sock, (char *)sbuffer, sizeof(input_t), 0);
 			if (ret < 0)
 			{
 				int err = WSAGetLastError();
@@ -407,9 +341,9 @@ void Roomy::handle_client_connectmode()
 				if (err != WSAEWOULDBLOCK)
 				{
 					printf("send returned -1 error %d\r\n", err);
-					connect_state = DISCONNECTED;
-					closesocket(connect_sock);
-					connect_sock = -1;
+					state = DISCONNECTED;
+					closesocket(sock);
+					sock = -1;
 				}
 				break;
 			}
@@ -422,89 +356,7 @@ void Roomy::handle_client_connectmode()
 		else
 		{
 			// drop 4 bytes and try again
-			dequeue(&squeue, sbuffer, 4);
-			continue;
-		}
-
-	}
-}
-
-
-
-void Roomy::handle_client_listenmode()
-{
-	unsigned int rsize;
-
-	if (client_sock == SOCKET_ERROR)
-	{
-		handle_listen(server_sock, client_sock, client_ip);
-	}
-	else
-	{
-		read_socket(client_sock, (char *)rbuffer, rsize);
-		enqueue(&rqueue, rbuffer, rsize);
-	}
-
-	while (rqueue.size >= packet_size)
-	{
-		header_t *header = (header_t *)rbuffer;
-
-		dequeue_peek(&rqueue, rbuffer, sizeof(header_t));
-
-		if (header->magic == 0xDEAFB4B3 && header->size == header->xres * header->yres * 4)
-		{
-			remote_size = header->size;
-			remote_width = header->xres;
-			remote_height = header->yres;
-			packet_size = MIN(FRAME_SIZE, remote_size) + sizeof(header_t);
-			dequeue(&rqueue, rbuffer, header->size + sizeof(header_t));
-		}
-		else
-		{
-			// drop 4 bytes and try again
-			dequeue(&rqueue, rbuffer, 4);
-			continue;
-		}
-
-		printf("Adding to view buffer\r\n");
-		memcpy(data, rbuffer + sizeof(header_t), header->size);
-		//			InvalidateRect(hwnd, NULL, 0);
-		// client draws from data buffer, so thats it
-	}
-
-	while (squeue.size >= sizeof(input_t) && client_sock != SOCKET_ERROR)
-	{
-		dequeue_peek(&rqueue, rbuffer, sizeof(input_t));
-
-		input_t *input = (input_t *)rbuffer;
-		if (input->magic == 0xDEAFB4B3)
-		{
-			dequeue(&rqueue, rbuffer, sizeof(input_t));
-
-			int ret = send(client_sock, (char *)input, sizeof(input_t), 0);
-			if (ret < 0)
-			{
-				int err = WSAGetLastError();
-
-				if (err != WSAEWOULDBLOCK)
-				{
-					printf("send returned -1 error %d\r\n", err);
-					connect_state = DISCONNECTED;
-					closesocket(client_sock);
-					client_sock = -1;
-				}
-				break;
-			}
-			else
-			{
-				printf("Sent %d bytes of mouse input\r\n", ret);
-				break;
-			}
-		}
-		else
-		{
-			// drop 4 bytes and try again
-			dequeue(&squeue, sbuffer, 4);
+			dequeue(&squeue, sbuffer, 1);
 			continue;
 		}
 
@@ -520,24 +372,43 @@ void Roomy::capture()
 	{
 		if (listen_mode)
 		{
-			handle_server_listenmode();
+			if (client_sock == SOCKET_ERROR)
+			{
+				client_state = DISCONNECTED;
+				handle_listen(server_sock, client_sock, client_ip);
+			}
+			else
+			{
+				client_state = CONNECTED;
+				handle_server(client_sock, client_state);
+			}
 		}
 		else
 		{
-			handle_server_connectmode();
+			handle_server(connect_sock, connect_state);
 		}
 	}
 	else
 	{
 		if (listen_mode)
 		{
-			handle_client_listenmode();
+			if (client_sock == SOCKET_ERROR)
+			{
+				client_state = DISCONNECTED;
+				handle_listen(server_sock, client_sock, client_ip);
+			}
+			else
+			{
+				client_state = CONNECTED;
+				handle_client(client_sock, client_state);
+			}
 		}
 		else
 		{
-			handle_client_connectmode();
+			handle_client(connect_sock, connect_state);
 		}
 	}
+
 	Sleep(0); // save CPU
 }
 
@@ -600,8 +471,8 @@ int Roomy::set_sock_options(int sock)
 	}
 
 
-	int flag = 1;
-	int result = setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
+//	int flag = 1;
+//	int result = setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
 
 	return 0;
 }
@@ -645,7 +516,10 @@ int Roomy::connect_socket(char *ip_addr, unsigned short port, int &sock)
 				printf("Would block, using select()\r\n");
 				return -1;
 			default:
-				printf("Fatal Error: %d\n", ret);
+				printf("Fatal Error: %d Line %d\n", err, __LINE__);
+				sock = -1;
+				closesocket(sock);
+				connect_state = DISCONNECTED;
 				break;
 			}
 
@@ -673,7 +547,7 @@ int Roomy::connect_socket(char *ip_addr, unsigned short port, int &sock)
 		int ret = select(sock + 1, &read_set, &write_set, NULL, &timeout);
 		if (ret < 0)
 		{
-			printf("select() failed ");
+			printf("select() failed\r\n");
 			return -1;
 		}
 		else if (ret == 0)
@@ -750,7 +624,9 @@ void Roomy::handle_listen(int &sock, int &csock, char *ipstr)
 		case WSAEWOULDBLOCK:
 			return;
 		default:
-			printf("Fatal Error: %d\n", err);
+			printf("Fatal Error: %d Line %d\n", err, __LINE__);
+			sock = -1;
+			closesocket(sock);
 			break;
 		}
 
@@ -760,10 +636,10 @@ void Roomy::handle_listen(int &sock, int &csock, char *ipstr)
 }
 
 
-void Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
+int Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 {
 	if (csock == -1)
-		return;
+		return -1;
 
 	size = 0;
 	while (1)
@@ -773,6 +649,7 @@ void Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 		if (ret > 0)
 		{
 //			printf("Read %d bytes from socket\r\n", ret);
+			enqueue(&rqueue, &rbuffer[size], ret);
 			size += ret;
 			if (size > packet_size)
 			{
@@ -790,6 +667,8 @@ void Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 
 			switch (err)
 			{
+			case WSAEWOULDBLOCK:
+				return 0;
 			case WSAETIMEDOUT:
 				csock = SOCKET_ERROR;
 				break;
@@ -799,16 +678,17 @@ void Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 			case WSAEHOSTUNREACH:
 				csock = SOCKET_ERROR;
 				break;
-			case WSAEWOULDBLOCK:
-				break;
 			default:
-				printf("Fatal Error: %d\n", err);
+				printf("Fatal Error: %d Line %d\n", err, __LINE__);
 				csock = SOCKET_ERROR;
+				closesocket(csock);
 				break;
 			}
-			break;
+			return -1;
 		}
 	}
+
+	return 0;
 }
 
 
@@ -836,11 +716,17 @@ void Roomy::read_config()
 void Roomy::mousemove(float x, float y, button_t button)
 {
 	static button_t last_button = { 0 };
+	static int last_tick = 0;
 
 	if (server)
 		return;
 
-	if (button.word != last_button.word)
+	// prevent mouse move flooding, but if a button change occurred, go for it
+	if (tick == last_tick && button.word == last_button.word)
+		return;
+
+
+	printf("x %f y %f\r\n", x, y);
 	{
 		input_t input;
 
