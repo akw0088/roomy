@@ -61,12 +61,25 @@ void Roomy::step(int data_size)
 				header.xres = screen_width;
 				header.yres = screen_height;
 				header.size = data_size;
-				// send to both connect and listen queues
-				printf("Adding frame to queue %d\r\n", seq++);
 
-				enqueue(&squeue, (unsigned char *)&header, sizeof(header_t));
-				enqueue(&squeue, data, header.size);
+
+				// save last image raw form
 				memcpy(cap_image_last, data, header.size);
+
+				int ret = encode(cap_image_last, header.xres, header.yres, data, header.size);
+				if (ret != 0)
+				{
+					printf("Encode failed\r\n");
+				}
+				else
+				{
+					// send to both connect and listen queues
+					printf("Adding frame to queue %d size %d\r\n", seq++, header.size);
+
+					packet_size = header.size + sizeof(header_t);
+					enqueue(&squeue, (unsigned char *)&header, sizeof(header_t));
+					enqueue(&squeue, data, header.size);
+				}
 			}
 			else
 			{
@@ -259,7 +272,7 @@ void Roomy::handle_server(int &sock, client_state_t &state)
 
 		dequeue_peek(&squeue, sbuffer, sizeof(header_t));
 
-		if (header->magic == 0xDEAFB4B3 && header->size == header->xres * header->yres * 4)
+		if (header->magic == 0xDEAFB4B3)
 		{
 			dequeue(&squeue, sbuffer, header->size + sizeof(header_t));
 		}
@@ -313,13 +326,24 @@ void Roomy::handle_client(int &sock, client_state_t &state)
 		header_t *header = (header_t *)rbuffer;
 
 		dequeue_peek(&rqueue, rbuffer, sizeof(header_t));
-		if (header->magic == 0xDEAFB4B3 && header->size == header->xres * header->yres * 4)
+		if (header->magic == 0xDEAFB4B3)
 		{
 			remote_size = header->size;
 			remote_width = header->xres;
 			remote_height = header->yres;
 			packet_size = MIN(FRAME_SIZE, remote_size) + sizeof(header_t);
 			dequeue(&rqueue, rbuffer, header->size + sizeof(header_t));
+
+
+			printf("Adding to view buffer\r\n");
+
+			unsigned char *png = rbuffer + sizeof(header_t);
+			int ret = decode(data, remote_width, remote_height, png, remote_size);
+			if (ret != 0)
+			{
+				printf("Decode failed\r\n");
+			}
+
 		}
 		else
 		{
@@ -328,8 +352,6 @@ void Roomy::handle_client(int &sock, client_state_t &state)
 			continue;
 		}
 
-		printf("Adding to view buffer\r\n");
-		memcpy(data, rbuffer + sizeof(header_t), header->size);
 		//			InvalidateRect(hwnd, NULL, 0);
 		// client draws from data buffer, so thats it
 	}
@@ -659,12 +681,12 @@ int Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 		ret = recv(csock, &buffer[size], packet_size, 0);
 		if (ret > 0)
 		{
-//			printf("Read %d bytes from socket\r\n", ret);
-			enqueue(&rqueue, &rbuffer[size], ret);
+			printf("Read %d bytes from socket\r\n", ret);
+			enqueue(&rqueue, (unsigned char *)&buffer[size], ret);
 			size += ret;
 			if (size > packet_size)
 			{
-//				printf("Read at least one frame\r\n");
+				printf("Read at least one frame\r\n");
 				break;
 			}
 		}
@@ -722,9 +744,23 @@ void Roomy::read_config()
 }
 
 
+int Roomy::encode(unsigned char *image, unsigned width, unsigned height, unsigned char *compressed, size_t &compressed_size)
+{
+//	return lodepng_encode32(compressed, &compressed_size, image, width, height);
+	memcpy(compressed, image, width * height * 4);
+	return 0;
+}
 
 
-void Roomy::mousemove(float x, float y, button_t button)
+int Roomy::decode(unsigned char *image, unsigned int width, unsigned int height, unsigned char *compressed, size_t &compressed_size)
+{
+//	return lodepng_decode32(image, &width, &height, compressed, compressed_size);
+	memcpy(image, compressed, compressed_size);
+	return 0;
+}
+
+
+void Roomy::mouse(float x, float y, button_t button)
 {
 	static button_t last_button = { 0 };
 	static int last_tick = 0;

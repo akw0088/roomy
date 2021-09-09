@@ -34,12 +34,13 @@ public:
 	Roomy();
 	void init(void *param1, void *param2, int xres, int yres);
 	void step(int data_size);
-	void mousemove(float x, float y, button_t button);
+	void mouse(float x, float y, button_t button);
 	void handle_input(input_t *input);
 
 	void handle_server(int &sock, client_state_t &state);
 	void handle_client(int &sock, client_state_t &state);
-
+	int encode(unsigned char* image, unsigned width, unsigned height, unsigned char* png, size_t &pngsize);
+	int decode(unsigned char *image, unsigned int width, unsigned int height, unsigned char *png, size_t &pngsize);
 
 	void capture();
 	void destroy();

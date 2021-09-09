@@ -229,7 +229,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		button.bits.wheel_amount = zDelta;
 
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 
 		button.bits.wheel = 0;
 		button.bits.hwheel = 0;
@@ -243,7 +243,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		float ypos = (float)y / (client_area.bottom - client_area.top);
 
 		button.bits.left = 1;
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 
 		break;
 	}
@@ -255,7 +255,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		float ypos = (float)y / (client_area.bottom - client_area.top);
 
 		button.bits.right = 1;
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 		break;
 	}
 	case WM_MBUTTONDOWN:
@@ -266,7 +266,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		float ypos = (float)y / (client_area.bottom - client_area.top);
 
 		button.bits.middle = 1;
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 		break;
 	}
 	case WM_XBUTTONDOWN:
@@ -287,7 +287,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			button.bits.x2 = 1;
 		}
 
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 		break;
 	}
 	case WM_XBUTTONUP:
@@ -308,7 +308,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			button.bits.x2 = 2;
 		}
 
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 		break;
 	}
 	case WM_LBUTTONUP:
@@ -319,7 +319,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		float ypos = (float)y / (client_area.bottom - client_area.top);
 
 		button.bits.left = 2;
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 
 		break;
 	}
@@ -331,7 +331,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		float ypos = (float)y / (client_area.bottom - client_area.top);
 
 		button.bits.right = 2;
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 
 		break;
 	}
@@ -352,7 +352,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			button.bits.x2 = 2;
 		}
 
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 
 		break;
 	}
@@ -367,7 +367,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		float ypos = (float)y / (client_area.bottom - client_area.top);
 
 
-		roomy.mousemove(xpos, ypos, button);
+		roomy.mouse(xpos, ypos, button);
 
 		break;
 	}
