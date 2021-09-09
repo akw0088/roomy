@@ -227,7 +227,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		else
 			button.bits.hwheel = 1;
 
-		button.bits.wheel_amount = zDelta / 120;
+		button.bits.wheel_amount = zDelta;
 
 		roomy.mousemove(xpos, ypos, button);
 

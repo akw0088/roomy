@@ -129,15 +129,16 @@ void Roomy::handle_input(input_t *input)
 
 		if (input->button.bits.wheel)
 		{
-			in.mi.dwFlags |= MOUSEEVENTF_WHEEL;
-			in.mi.mouseData = input->button.bits.wheel_amount * 120;
-			printf("Mouse wheel %d\r\n", input->button.bits.wheel_amount);
+			printf("Mouse wheel %d\r\n", (short)input->button.bits.wheel_amount);
+
+			mouse_event(MOUSEEVENTF_WHEEL, 0, 0, (short)input->button.bits.wheel_amount, 0);
+			return;
 		}
 		else if (input->button.bits.hwheel)
 		{
-			in.mi.dwFlags |= MOUSEEVENTF_HWHEEL;
-			in.mi.mouseData = input->button.bits.wheel_amount * 120;
-			printf("Mouse hwheel %d\r\n", input->button.bits.wheel_amount);
+			printf("Mouse hwheel %d\r\n", (short)input->button.bits.wheel_amount);
+			mouse_event(MOUSEEVENTF_HWHEEL, 0, 0, (short)input->button.bits.wheel_amount, 0);
+			return;
 		}
 		else if (input->button.bits.x1 == 1)
 		{

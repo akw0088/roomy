@@ -67,8 +67,8 @@ typedef struct
 		wheel : 2,
 		hwheel : 1,
 		reserved0 : 1,
-		reserved1 : 8,
-		wheel_amount : 10;
+		reserved1 : 2,
+		wheel_amount : 16;
 } button_bits_t;
 
 typedef union
