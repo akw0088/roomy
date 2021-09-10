@@ -118,7 +118,9 @@ void Roomy::step(int data_size)
 	InvalidateRect(hwnd, NULL, 0);
 }
 
-void Roomy::handle_input(input_t *input)
+
+
+void Roomy::handle_mouse(input_t *input)
 {
 	RECT rect;
 	INPUT in = { 0 };
@@ -253,10 +255,14 @@ void Roomy::handle_server(int &sock, client_state_t &state)
 
 		input_t *input = (input_t *)rbuffer;
 
-		if (input->magic == 0xDEADBEEF)
+		if (input->magic == 0xDEADBEEF || input->magic == 0x531F1355)
 		{
 			dequeue(&rqueue, rbuffer, sizeof(input_t));
-			handle_input(input);
+
+			if (input->magic == 0xDEADBEEF)
+				handle_mouse(input);
+			else
+				handle_keyboard(input);
 		}
 		else
 		{
@@ -362,7 +368,7 @@ void Roomy::handle_client(int &sock, client_state_t &state)
 
 		input_t *input = (input_t *)sbuffer;
 
-		if (input->magic == 0xDEADBEEF)
+		if (input->magic == 0xDEADBEEF || input->magic == 0x531F1355)
 		{
 			dequeue(&squeue, sbuffer, sizeof(input_t));
 
@@ -681,12 +687,12 @@ int Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 		ret = recv(csock, &buffer[size], packet_size, 0);
 		if (ret > 0)
 		{
-			printf("Read %d bytes from socket\r\n", ret);
+//			printf("Read %d bytes from socket\r\n", ret);
 			enqueue(&rqueue, (unsigned char *)&buffer[size], ret);
 			size += ret;
 			if (size > packet_size)
 			{
-				printf("Read at least one frame\r\n");
+//				printf("Read at least one frame\r\n");
 				break;
 			}
 		}
@@ -775,13 +781,42 @@ void Roomy::mouse(float x, float y, button_t button)
 
 	printf("x %f y %f\r\n", x, y);
 	{
-		input_t input;
+		input_t input = { 0 };
 
 		input.magic = 0xDEADBEEF;
 		input.x = x;
 		input.y = y;
 		input.button.word = button.word;
-		input.keyboard = 0;
 		enqueue(&squeue, (unsigned char *)&input, sizeof(input_t));
 	}
+}
+
+void Roomy::keycode(unsigned int kc, int up)
+{
+	{
+		input_t input = { 0 };
+
+		input.magic = 0x531F1355;
+		input.keycode = kc;
+		input.keyup = up;
+		enqueue(&squeue, (unsigned char *)&input, sizeof(input_t));
+	}
+}
+
+void Roomy::handle_keyboard(input_t *input)
+{
+	INPUT in = { 0 };
+
+
+	printf("keycode %d\r\n", input->keycode);
+	printf("keyup %d\r\n", input->keyup);
+
+	in.type = INPUT_KEYBOARD;
+	in.ki.wVk = input->keycode;
+	if (input->keyup)
+	{
+		in.ki.dwFlags = KEYEVENTF_KEYUP;
+	}
+
+	SendInput(1, &in, sizeof(INPUT));
 }

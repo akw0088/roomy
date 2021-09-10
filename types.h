@@ -81,10 +81,15 @@ typedef union
 typedef struct
 {
 	int magic;
+
+	// mouse
 	float x;
 	float y;
 	button_t button;
-	uint64_t keyboard;
+
+	//keyboard
+	unsigned int keycode;
+	unsigned int keyup;
 } input_t;
 
 

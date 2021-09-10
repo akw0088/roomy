@@ -35,7 +35,9 @@ public:
 	void init(void *param1, void *param2, int xres, int yres);
 	void step(int data_size);
 	void mouse(float x, float y, button_t button);
-	void handle_input(input_t *input);
+	void handle_mouse(input_t *input);
+	void handle_keyboard(input_t *input);
+	void keycode(unsigned int keycode, int up);
 
 	void handle_server(int &sock, client_state_t &state);
 	void handle_client(int &sock, client_state_t &state);

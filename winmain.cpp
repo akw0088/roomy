@@ -172,6 +172,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	static RECT		client_area;
 	static Roomy roomy;
 	static button_t button = { 0 };
+	unsigned int keycode = 0;
 
 
 
@@ -388,6 +389,13 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		EndPaint(hwnd, &ps);
 		return 0;
+	}
+	case WM_KEYDOWN:
+	case WM_KEYUP:
+	{
+		keycode = wParam;
+		roomy.keycode(keycode, (message == WM_KEYUP));
+		break;
 	}
 	case WM_DESTROY:
 	{
