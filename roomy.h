@@ -68,7 +68,12 @@ private:
 	int listen_port;
 	int connect_port;
 	int listen_mode;
+
 	int debug;
+	int compress;
+	int enable_mouse;
+	int enable_keyboard;
+
 	char connect_ip[512];
 	char listen_ip[512];
 	char client_ip[512];
@@ -83,7 +88,6 @@ private:
 
 	unsigned int remote_size;
 	unsigned int packet_size;
-
 	unsigned int tick;
 
 	queue_t squeue;
