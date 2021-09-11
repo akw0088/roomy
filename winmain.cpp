@@ -21,67 +21,61 @@ void RedirectIOToConsole(int debug);
 
 int GetScreenCapture(unsigned char *data, unsigned int &size)
 {
-	HDC hdcScreen = NULL;
-	HDC hdc = NULL;
-	HDC hTargetDC = NULL;
+	HDC hdcScr = NULL;
+	HDC hdcMem = NULL;
 	HBITMAP hBitmap = NULL;
-	HWND hDesktop;
-
-	hDesktop = GetDesktopWindow();
-
-	hdcScreen = GetDC(NULL); // Get screen device conext
-	hdc = GetDC(hDesktop); // Get Window device context
-
-	hTargetDC = CreateCompatibleDC(hdc);
-
-	RECT rect;
-	GetClientRect(hDesktop, &rect);
-
-	SetStretchBltMode(hdc, HALFTONE);
-
-	StretchBlt(hdc, 0, 0, rect.right, rect.bottom, hdcScreen,	0, 0,
-		GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), SRCCOPY);
-
-	hBitmap = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
-
-	HBITMAP old = (HBITMAP)SelectObject(hTargetDC, hBitmap);
-
-	// Bit block transfer into our compatible memory DC.
-	BitBlt(hTargetDC, 0, 0,
-		rect.right - rect.left,
-		rect.bottom - rect.top,
-		hdc, 0, 0, SRCCOPY);
+	HWND hwnd;
 
 
-	BITMAPINFOHEADER   bi;
+	if (LockWindowUpdate(hwnd = GetDesktopWindow()))
+	{
+		hdcScr = GetDCEx(hwnd, NULL, DCX_CACHE | DCX_LOCKWINDOWUPDATE);
+		hdcMem = CreateCompatibleDC(hdcScr);
 
-	bi.biSize = sizeof(BITMAPINFOHEADER);
-	bi.biWidth = (rect.right - rect.left);
-	bi.biHeight = (rect.bottom - rect.top);
-	bi.biPlanes = 1;
-	bi.biBitCount = 32;
-	bi.biCompression = BI_RGB;
-	bi.biSizeImage = 0;
-	bi.biXPelsPerMeter = 0;
-	bi.biYPelsPerMeter = 0;
-	bi.biClrUsed = 0;
-	bi.biClrImportant = 0;
+		RECT rect;
+		GetClientRect(hwnd, &rect);
 
-	// GetBitmapBits is device dependent, so might give some weirdness across networks
-	//GetBitmapBits(hBitmap, (rect.right - rect.left) * (rect.bottom - rect.top) * 4, data);
+		SetStretchBltMode(hdcScr, HALFTONE);
 
-	GetDIBits(hdc, hBitmap, 0, (rect.bottom - rect.top), data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
-	size = (rect.right - rect.left) * (rect.bottom - rect.top) * bi.biBitCount / 8;
+		hBitmap = CreateCompatibleBitmap(hdcScr, rect.right - rect.left, rect.bottom - rect.top);
 
+		HBITMAP old = (HBITMAP)SelectObject(hdcMem, hBitmap);
 
-	SelectObject(hTargetDC, old);
+		// Bit block transfer into our compatible memory DC.
+		BitBlt(hdcMem, 0, 0,
+			rect.right - rect.left,
+			rect.bottom - rect.top,
+			hdcScr, 0, 0, SRCCOPY);
 
 
-	DeleteObject(hBitmap);
-	DeleteObject(hTargetDC);
-	ReleaseDC(NULL, hdcScreen);
-	ReleaseDC(hDesktop, hdc);
+		BITMAPINFOHEADER   bi;
 
+		bi.biSize = sizeof(BITMAPINFOHEADER);
+		bi.biWidth = (rect.right - rect.left);
+		bi.biHeight = (rect.bottom - rect.top);
+		bi.biPlanes = 1;
+		bi.biBitCount = 32;
+		bi.biCompression = BI_RGB;
+		bi.biSizeImage = 0;
+		bi.biXPelsPerMeter = 0;
+		bi.biYPelsPerMeter = 0;
+		bi.biClrUsed = 0;
+		bi.biClrImportant = 0;
+
+		// GetBitmapBits is device dependent, so might give some weirdness across networks
+		//GetBitmapBits(hBitmap, (rect.right - rect.left) * (rect.bottom - rect.top) * 4, data);
+
+		GetDIBits(hdcScr, hBitmap, 0, (rect.bottom - rect.top), data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
+		size = (rect.right - rect.left) * (rect.bottom - rect.top) * bi.biBitCount / 8;
+
+
+		SelectObject(hdcMem, old);
+
+		DeleteDC(hdcMem);
+		ReleaseDC(hwnd, hdcScr);
+		DeleteObject(hBitmap);
+		LockWindowUpdate(NULL);
+	}
 	return 0;
 }
 
