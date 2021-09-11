@@ -13,6 +13,9 @@ Roomy::Roomy()
 	connect_port = 65534;
 	listen_mode = 0;
 	debug = 0;
+	update_rate = 500;
+	enable_mouse = 1;
+	enable_keyboard = 1;
 	sprintf(connect_ip, "127.0.0.1");
 	sprintf(listen_ip, "127.0.0.1");
 	sprintf(client_ip, "");
@@ -129,11 +132,17 @@ void Roomy::handle_mouse(input_t *input)
 	RECT rect;
 	INPUT in = { 0 };
 	static button_t last_button = { 0 };
-
+	static int last_rate = 500;
 	rect.left = 0;
 	rect.top = 0;
 	rect.right = screen_width;
 	rect.bottom = screen_height;
+
+
+	if (last_rate != input->rate)
+	{
+		SetTimer(hwnd, 1337, input->rate, NULL);
+	}
 
 	// set mouse position
 	in.type = INPUT_MOUSE;
@@ -750,6 +759,9 @@ void Roomy::read_config()
 	connect_port = GetPrivateProfileInt(TEXT("roomy"), TEXT("connect"), 65535, path);
 	GetPrivateProfileString(TEXT("roomy"), TEXT("ip"), "127.0.0.1", connect_ip, MAX_PATH, path);
 	listen_mode = GetPrivateProfileInt(TEXT("roomy"), TEXT("listen_mode"), 1, path);
+	update_rate = GetPrivateProfileInt(TEXT("roomy"), TEXT("rate"), 500, path);
+	enable_mouse = GetPrivateProfileInt(TEXT("roomy"), TEXT("enable_mouse"), 1, path);
+	enable_keyboard = GetPrivateProfileInt(TEXT("roomy"), TEXT("enable_keyboard"), 1, path);
 #endif
 }
 
@@ -778,31 +790,36 @@ void Roomy::mouse(float x, float y, button_t button)
 	if (server)
 		return;
 
+
 	// prevent mouse move flooding, but if a button change occurred, go for it
 	if (tick == last_tick && button.word == last_button.word)
 		return;
 
 
-	printf("x %f y %f\r\n", x, y);
+	if (enable_mouse)
 	{
 		input_t input = { 0 };
 
+		printf("x %f y %f\r\n", x, y);
 		input.magic = 0xDEADBEEF;
 		input.x = x;
 		input.y = y;
 		input.button.word = button.word;
+		input.rate = update_rate;
 		enqueue(&squeue, (unsigned char *)&input, sizeof(input_t));
 	}
 }
 
 void Roomy::keycode(unsigned int kc, int up)
 {
+	if (enable_keyboard)
 	{
 		input_t input = { 0 };
 
 		input.magic = 0x531F1355;
 		input.keycode = kc;
 		input.keyup = up;
+		input.rate = update_rate;
 		enqueue(&squeue, (unsigned char *)&input, sizeof(input_t));
 	}
 }
@@ -810,7 +827,7 @@ void Roomy::keycode(unsigned int kc, int up)
 void Roomy::handle_keyboard(input_t *input)
 {
 	INPUT in = { 0 };
-
+	static int last_rate = 500;
 
 	printf("keycode %d\r\n", input->keycode);
 	printf("keyup %d\r\n", input->keyup);
@@ -821,6 +838,12 @@ void Roomy::handle_keyboard(input_t *input)
 	{
 		in.ki.dwFlags = KEYEVENTF_KEYUP;
 	}
+
+	if (last_rate != input->rate)
+	{
+		SetTimer(hwnd, 1337, input->rate, NULL);
+	}
+
 
 	SendInput(1, &in, sizeof(INPUT));
 }

@@ -90,6 +90,9 @@ typedef struct
 	//keyboard
 	unsigned int keycode;
 	unsigned int keyup;
+
+	// timer
+	unsigned int rate;
 } input_t;
 
 

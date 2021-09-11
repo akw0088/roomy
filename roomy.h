@@ -85,6 +85,9 @@ private:
 	unsigned int packet_size;
 
 	unsigned int tick;
+	unsigned int update_rate;
+	unsigned int enable_mouse;
+	unsigned int enable_keyboard;
 
 	queue_t squeue;
 	queue_t rqueue;

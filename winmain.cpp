@@ -185,7 +185,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		WSAStartup(MAKEWORD(2, 0), &WSAData);
 		roomy.init((void *)hwnd, NULL, screen_width, screen_height);
-		SetTimer(hwnd, 0, 500, NULL);
+		SetTimer(hwnd, 1337, 500, NULL);
 		break;
 	}
 	case WMU_CAPTURE:
@@ -207,6 +207,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		int screen_height = GetSystemMetrics(SM_CYSCREEN);
 
 		roomy.step(data_size, screen_width, screen_height);
+		SendMessage(hwnd, WMU_CAPTURE, 0, 0);
 		break;
 	}
 	case WM_SIZE:
