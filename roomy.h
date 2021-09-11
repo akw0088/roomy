@@ -33,7 +33,7 @@ class Roomy
 public:
 	Roomy();
 	void init(void *param1, void *param2, int xres, int yres);
-	void step(int data_size);
+	void step(int data_size, int xres, int yres);
 	void mouse(float x, float y, button_t button);
 	void handle_mouse(input_t *input);
 	void handle_keyboard(input_t *input);
@@ -68,12 +68,7 @@ private:
 	int listen_port;
 	int connect_port;
 	int listen_mode;
-
 	int debug;
-	int compress;
-	int enable_mouse;
-	int enable_keyboard;
-
 	char connect_ip[512];
 	char listen_ip[512];
 	char client_ip[512];
@@ -88,6 +83,7 @@ private:
 
 	unsigned int remote_size;
 	unsigned int packet_size;
+
 	unsigned int tick;
 
 	queue_t squeue;

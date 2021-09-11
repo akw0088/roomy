@@ -1,10 +1,6 @@
 #include "roomy.h"
-#include "huffman.h"
 
 char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
-
-static unsigned char huffbuf[HUFFHEAP_SIZE];
-
 
 Roomy::Roomy()
 {
@@ -45,9 +41,13 @@ void Roomy::init(void *param1, void *param2, int xres, int yres)
 	}
 }
 
-void Roomy::step(int data_size)
+void Roomy::step(int data_size, int xres, int yres)
 {
 	tick++;
+
+	// resolution can change
+	screen_width = xres;
+	screen_height = yres;
 
 	if (server)
 	{
@@ -78,10 +78,7 @@ void Roomy::step(int data_size)
 				else
 				{
 					// send to both connect and listen queues
-					printf("Adding frame to queue %d size %0.2f kb (%0.2f of original size)\r\n",
-						seq++, (float)header.size / 1024,
-						(float)(100 * header.size / (screen_width * screen_height * 4))
-					);
+					printf("Adding frame to queue %d size %d\r\n", seq++, header.size);
 
 					packet_size = header.size + sizeof(header_t);
 					enqueue(&squeue, (unsigned char *)&header, sizeof(header_t));
@@ -344,14 +341,14 @@ void Roomy::handle_client(int &sock, client_state_t &state)
 			remote_size = header->size;
 			remote_width = header->xres;
 			remote_height = header->yres;
-			packet_size = MIN(FRAME_SIZE, FRAME_SIZE) + sizeof(header_t);
+			packet_size = MIN(FRAME_SIZE, remote_size) + sizeof(header_t);
 			dequeue(&rqueue, rbuffer, header->size + sizeof(header_t));
 
 
 			printf("Adding to view buffer\r\n");
 
-			unsigned char *compressed = rbuffer + sizeof(header_t);
-			int ret = decode(data, remote_width, remote_height, compressed, remote_size);
+			unsigned char *png = rbuffer + sizeof(header_t);
+			int ret = decode(data, remote_width, remote_height, png, remote_size);
 			if (ret != 0)
 			{
 				printf("Decode failed\r\n");
@@ -694,12 +691,12 @@ int Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 		ret = recv(csock, &buffer[size], packet_size, 0);
 		if (ret > 0)
 		{
-			printf("Read %d bytes from socket\r\n", ret);
+//			printf("Read %d bytes from socket\r\n", ret);
 			enqueue(&rqueue, (unsigned char *)&buffer[size], ret);
 			size += ret;
 			if (size > packet_size)
 			{
-				printf("Read at least one frame\r\n");
+//				printf("Read at least one frame\r\n");
 				break;
 			}
 		}
@@ -748,51 +745,27 @@ void Roomy::read_config()
 	lstrcat(path, TEXT("\\roomy.ini"));
 
 	server = GetPrivateProfileInt(TEXT("roomy"), TEXT("server"), 1, path);
-	compress = GetPrivateProfileInt(TEXT("roomy"), TEXT("compress"), 1, path);
 	debug = GetPrivateProfileInt(TEXT("roomy"), TEXT("debug"), 0, path);
 	listen_port = GetPrivateProfileInt(TEXT("roomy"), TEXT("listen"), 65535, path);
 	connect_port = GetPrivateProfileInt(TEXT("roomy"), TEXT("connect"), 65535, path);
 	GetPrivateProfileString(TEXT("roomy"), TEXT("ip"), "127.0.0.1", connect_ip, MAX_PATH, path);
 	listen_mode = GetPrivateProfileInt(TEXT("roomy"), TEXT("listen_mode"), 1, path);
-	enable_mouse = GetPrivateProfileInt(TEXT("roomy"), TEXT("enable_mouse"), 1, path);
-	enable_keyboard = GetPrivateProfileInt(TEXT("roomy"), TEXT("enable_keyboard"), 1, path);
-
 #endif
 }
 
 
 int Roomy::encode(unsigned char *image, unsigned width, unsigned height, unsigned char *compressed, size_t &compressed_size)
 {
-	if (compress)
-	{
-		compressed_size = (unsigned long)huffman_compress((unsigned char *)&image[0],
-			width * height * 4, compressed, FRAME_SIZE, huffbuf);
-	}
-	else
-	{
-		memcpy(compressed, image, width * height * 4);
-	}
-
+//	return lodepng_encode32(compressed, &compressed_size, image, width, height);
+	memcpy(compressed, image, width * height * 4);
 	return 0;
 }
 
 
 int Roomy::decode(unsigned char *image, unsigned int width, unsigned int height, unsigned char *compressed, size_t &compressed_size)
 {
-	if (compress)
-	{
-		unsigned int dsize = huffman_decompress(compressed, compressed_size, image, FRAME_SIZE, huffbuf);
-		if (dsize != remote_width * remote_height * 4)
-		{
-			return -1;
-		}
-	}
-	else
-	{
-		compressed_size = width * height * 4;
-		memcpy(image, compressed, compressed_size);
-	}
-
+//	return lodepng_decode32(image, &width, &height, compressed, compressed_size);
+	memcpy(image, compressed, compressed_size);
 	return 0;
 }
 
@@ -809,11 +782,11 @@ void Roomy::mouse(float x, float y, button_t button)
 	if (tick == last_tick && button.word == last_button.word)
 		return;
 
-	if (enable_mouse)
+
+	printf("x %f y %f\r\n", x, y);
 	{
 		input_t input = { 0 };
 
-		printf("x %f y %f\r\n", x, y);
 		input.magic = 0xDEADBEEF;
 		input.x = x;
 		input.y = y;
@@ -824,7 +797,6 @@ void Roomy::mouse(float x, float y, button_t button)
 
 void Roomy::keycode(unsigned int kc, int up)
 {
-	if (enable_keyboard)
 	{
 		input_t input = { 0 };
 

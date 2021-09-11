@@ -201,7 +201,12 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			GetScreenCapture(hwnd, roomy.get_data(), data_size);
 		}
-		roomy.step(data_size);
+
+
+		int screen_width = GetSystemMetrics(SM_CXSCREEN);
+		int screen_height = GetSystemMetrics(SM_CYSCREEN);
+
+		roomy.step(data_size, screen_width, screen_height);
 		break;
 	}
 	case WM_SIZE:
