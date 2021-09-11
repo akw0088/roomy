@@ -19,7 +19,7 @@ LRESULT CALLBACK WinProc(HWND, UINT, WPARAM, LPARAM);
 void draw_pixels(HDC hdc, int xoff, int yoff, int width, int height, int scalew, int scaleh, unsigned char *data);
 void RedirectIOToConsole(int debug);
 
-int GetScreenCapture(HWND hwnd, unsigned char *data, unsigned int &size)
+int GetScreenCapture(unsigned char *data, unsigned int &size)
 {
 	HDC hdcScreen = NULL;
 	HDC hdc = NULL;
@@ -44,7 +44,7 @@ int GetScreenCapture(HWND hwnd, unsigned char *data, unsigned int &size)
 
 	hBitmap = CreateCompatibleBitmap(hdc, rect.right - rect.left, rect.bottom - rect.top);
 
-	SelectObject(hTargetDC, hBitmap);
+	HBITMAP old = (HBITMAP)SelectObject(hTargetDC, hBitmap);
 
 	// Bit block transfer into our compatible memory DC.
 	BitBlt(hTargetDC, 0, 0,
@@ -72,10 +72,15 @@ int GetScreenCapture(HWND hwnd, unsigned char *data, unsigned int &size)
 
 	GetDIBits(hdc, hBitmap, 0, (rect.bottom - rect.top), data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
 	size = (rect.right - rect.left) * (rect.bottom - rect.top) * bi.biBitCount / 8;
+
+
+	SelectObject(hTargetDC, old);
+
+
 	DeleteObject(hBitmap);
 	DeleteObject(hTargetDC);
 	ReleaseDC(NULL, hdcScreen);
-	ReleaseDC(hwnd, hdc);
+	ReleaseDC(hDesktop, hdc);
 
 	return 0;
 }
@@ -199,7 +204,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		if (roomy.server)
 		{
-			GetScreenCapture(hwnd, roomy.get_data(), data_size);
+			GetScreenCapture(roomy.get_data(), data_size);
 		}
 
 
