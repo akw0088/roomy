@@ -767,7 +767,7 @@ void Roomy::read_config()
 }
 
 
-int Roomy::encode(unsigned char *image, unsigned width, unsigned height, unsigned char *compressed, size_t &compressed_size)
+int Roomy::encode(unsigned char *image, unsigned width, unsigned height, unsigned char *compressed, unsigned int &compressed_size)
 {
 //	return lodepng_encode32(compressed, &compressed_size, image, width, height);
 	memcpy(compressed, image, width * height * 4);
@@ -775,7 +775,7 @@ int Roomy::encode(unsigned char *image, unsigned width, unsigned height, unsigne
 }
 
 
-int Roomy::decode(unsigned char *image, unsigned int width, unsigned int height, unsigned char *compressed, size_t &compressed_size)
+int Roomy::decode(unsigned char *image, unsigned int width, unsigned int height, unsigned char *compressed, unsigned int &compressed_size)
 {
 //	return lodepng_decode32(image, &width, &height, compressed, compressed_size);
 	memcpy(image, compressed, compressed_size);

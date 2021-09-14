@@ -1,7 +1,7 @@
 #ifndef ROOMY_H
 #define ROOMY_H
 
-#ifdef WIN32
+#ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <winsock.h>
@@ -41,8 +41,8 @@ public:
 
 	void handle_server(int &sock, client_state_t &state);
 	void handle_client(int &sock, client_state_t &state);
-	int encode(unsigned char* image, unsigned width, unsigned height, unsigned char* png, size_t &pngsize);
-	int decode(unsigned char *image, unsigned int width, unsigned int height, unsigned char *png, size_t &pngsize);
+	int encode(unsigned char* image, unsigned width, unsigned height, unsigned char* png, unsigned int &pngsize);
+	int decode(unsigned char *image, unsigned int width, unsigned int height, unsigned char *png, unsigned int &pngsize);
 
 	void capture();
 	void destroy();

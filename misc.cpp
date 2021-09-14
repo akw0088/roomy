@@ -22,6 +22,11 @@ void RedirectIOToConsole(int debug)
 		HWND hwndConsole = GetConsoleWindow();
 
 		ShowWindow(hwndConsole, SW_SHOW);
+
+
+//		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+//		SetConsoleTextAttribute(hConsole, BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+
 		// set the screen buffer to be big enough to let us scroll text
 		GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &coninfo);
 
