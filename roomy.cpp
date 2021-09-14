@@ -711,6 +711,7 @@ int Roomy::read_socket(int &csock, char *buffer, unsigned int &size)
 		}
 		else if (ret == 0)
 		{
+			Sleep(16);
 			break;
 		}
 		else if (ret < 0)
